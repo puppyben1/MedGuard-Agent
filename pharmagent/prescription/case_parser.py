@@ -136,13 +136,78 @@ _DRUG_NAMES_HINT = {
     "heparin", "enoxaparin", "lithium", "sertraline", "fluoxetine", "tramadol",
 }
 
+# Chinese → English generic name mapping (covers common outpatient drugs).
+# Keys include brand names and pinyin/hanzi forms seen in Chinese charts.
+_CN_DRUG_MAP: dict[str, str] = {
+    "二甲双胍": "metformin", "格华止": "metformin",
+    "华法林": "warfarin",
+    "赖诺普利": "lisinopril",
+    "司美格鲁肽": "semaglutide", "诺和泰": "semaglutide",
+    "阿司匹林": "aspirin", "拜阿": "aspirin",
+    "布洛芬": "ibuprofen",
+    "萘普生": "naproxen",
+    "对乙酰氨基酚": "acetaminophen", "扑热息痛": "acetaminophen", "泰诺": "acetaminophen",
+    "阿托伐他汀": "atorvastatin", "立普妥": "atorvastatin",
+    "辛伐他汀": "simvastatin",
+    "氨氯地平": "amlodipine", "络活喜": "amlodipine",
+    "奥美拉唑": "omeprazole",
+    "氯沙坦": "losartan",
+    "氢氯噻嗪": "hydrochlorothiazide",
+    "加巴喷丁": "gabapentin",
+    "泼尼松": "prednisone",
+    "阿莫西林": "amoxicillin", "阿莫仙": "amoxicillin",
+    "阿奇霉素": "azithromycin",
+    "氯吡格雷": "clopidogrel", "波立维": "clopidogrel",
+    "泮托拉唑": "pantoprazole",
+    "左甲状腺素": "levothyroxine", "优甲乐": "levothyroxine",
+    "呋塞米": "furosemide", "速尿": "furosemide",
+    "胰岛素": "insulin",
+    "格列吡嗪": "glipizide",
+    "恩格列净": "empagliflozin",
+    "利拉鲁肽": "liraglutide",
+    "瑞舒伐他汀": "rosuvastatin",
+    "缬沙坦": "valsartan",
+    "依那普利": "enalapril",
+    "雷米普利": "ramipril",
+    "地尔硫卓": "diltiazem",
+    "维拉帕米": "verapamil",
+    "地高辛": "digoxin",
+    "阿哌沙班": "apixaban",
+    "利伐沙班": "rivaroxaban",
+    "达比加群": "dabigatran",
+    "肝素": "heparin",
+    "依诺肝素": "enoxaparin",
+    "碳酸锂": "lithium", "锂盐": "lithium",
+    "舍曲林": "sertraline",
+    "氟西汀": "fluoxetine",
+    "曲马多": "tramadol",
+}
+
+# Chinese dose unit pattern: 药名 + 数字 + 毫克/微克/毫升/片/粒 + (可选)频次词
+_CN_DOSE_RE = re.compile(
+    r"(?P<name>[\u4e00-\u9fa5]{2,8})\s*(?P<dose>\d+(?:\.\d+)?\s*(?:毫克|微克|mg|片|粒|ml|毫升|单位))"
+    r"\s*(?P<freq>每日一次|每日两次|每日三次|一天一次|一天两次|一天三次|每天一次|每天两次|每天三次|每日|每天|qd|bid|tid)?",
+    re.IGNORECASE,
+)
+
+_CN_FREQ_MAP = {
+    "每日一次": "qd", "每天一次": "qd", "一天一次": "qd",
+    "每日两次": "bid", "每天两次": "bid", "一天两次": "bid",
+    "每日三次": "tid", "每天三次": "tid", "一天三次": "tid",
+    "每日": "qd", "每天": "qd",
+}
+
 
 def _extract_drugs_regex(text: str) -> list[DrugOrder]:
-    """Fallback drug extraction using regex on dose patterns + known drug names."""
+    """Fallback drug extraction using regex on dose patterns + known drug names.
+
+    Handles both English (dose pattern + known name) and Chinese charts
+    (hanzi name → generic via _CN_DRUG_MAP, with Chinese dose units).
+    """
     text_lower = text.lower()
     found: dict[str, DrugOrder] = {}
 
-    # Pass 1: dose patterns like "metformin 500 mg BID"
+    # Pass 1a: English dose patterns like "metformin 500 mg BID"
     for m in _DRUG_DOSE_RE.finditer(text):
         name = m.group("name").lower()
         if name in _DRUG_NAMES_HINT:
@@ -153,42 +218,89 @@ def _extract_drugs_regex(text: str) -> list[DrugOrder]:
                 frequency=(m.group("freq") or "").lower().replace(".", ""),
             )
 
-    # Pass 2: known drug names mentioned without explicit dose
+    # Pass 1b: Chinese dose patterns like "二甲双胍 500毫克 每日两次"
+    for m in _CN_DOSE_RE.finditer(text):
+        cn_name = m.group("name")
+        en_name = _CN_DRUG_MAP.get(cn_name)
+        if en_name and en_name not in found:
+            freq_raw = (m.group("freq") or "").strip()
+            freq = _CN_FREQ_MAP.get(freq_raw, freq_raw.lower())
+            found[en_name] = DrugOrder(
+                name=en_name,
+                dose=m.group("dose").strip(),
+                route="oral",
+                frequency=freq,
+                notes=cn_name,
+            )
+
+    # Pass 2: English known drug names mentioned without explicit dose
     for drug in _DRUG_NAMES_HINT:
         if drug in found:
             continue
         if re.search(rf"\b{re.escape(drug)}\b", text_lower):
             found[drug] = DrugOrder(name=drug)
 
+    # Pass 3: Chinese drug names mentioned without explicit dose
+    for cn_name, en_name in _CN_DRUG_MAP.items():
+        if en_name in found:
+            continue
+        if cn_name in text:
+            found[en_name] = DrugOrder(name=en_name, notes=cn_name)
+
     return list(found.values())
 
 
 def _extract_egfr_regex(text: str) -> float | None:
     text_lower = text.lower()
-    # explicit eGFR number
+    # explicit eGFR number (English)
     m = re.search(r"egfr[^0-9]{0,10}(\d{1,3}(?:\.\d+)?)", text_lower)
     if m:
         try:
             return float(m.group(1))
         except ValueError:
             pass
-    # CKD stage mapping
+    # Chinese eGFR / 肾小球滤过率
+    m = re.search(r"(?:egfr|肾小球滤过率|肾小球滤过|eGFR)[^0-9]{0,10}(\d{1,3}(?:\.\d+)?)", text)
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            pass
+    # CKD stage mapping (English)
     m = re.search(r"ckd\s*stage\s*([12345]\w?)", text_lower)
     if m:
         stage = m.group(1)
         return _CKD_STAGE_EGFR.get(stage)
-    # qualitative renal impairment
-    if re.search(r"severe\s*renal|esrd|dialysis", text_lower):
+    # Chinese CKD stage: 慢性肾脏病/慢性肾病 3期 / 4期 / Ⅴ期
+    m = re.search(r"(?:慢性肾脏病|慢性肾病|CKD)\s*([1-5Ⅰ-Ⅴ])[a-d期]?\s*期?", text)
+    if m:
+        stage = m.group(1)
+        # normalize roman numerals
+        roman_map = {"Ⅰ": "1", "Ⅱ": "2", "Ⅲ": "3", "Ⅳ": "4", "Ⅴ": "5"}
+        stage = roman_map.get(stage, stage)
+        return _CKD_STAGE_EGFR.get(stage)
+    # qualitative renal impairment (English + Chinese)
+    if re.search(r"severe\s*renal|esrd|dialysis", text_lower) or re.search(r"重度肾|终末期肾病|透析", text):
         return 10.0
-    if re.search(r"moderate\s*renal", text_lower):
+    if re.search(r"moderate\s*renal", text_lower) or re.search(r"中度肾", text):
         return 30.0
-    if re.search(r"mild\s*renal", text_lower):
+    if re.search(r"mild\s*renal", text_lower) or re.search(r"轻度肾", text):
         return 60.0
     return None
 
 
 def _extract_age_regex(text: str) -> int | None:
+    # English: "68-year-old", "68yo male", "68 y/o"
     m = re.search(r"(\d{1,3})[\s-]*(?:year|yo|y/o|y\.o\.|yr)[- ]?(?:old)?\s*(?:male|female|man|woman|patient|gentleman|lady)?", text, re.IGNORECASE)
+    if m:
+        try:
+            age = int(m.group(1))
+            if 0 < age < 130:
+                return age
+        except ValueError:
+            pass
+    # Chinese: "68岁男性", "68岁女性", "68岁患者", "年龄68岁"
+    m = re.search(r"(?:年龄\s*)?(\d{1,3})\s*岁\s*(?:男性|女性|患者|男|女)?", text)
     if m:
         try:
             age = int(m.group(1))
@@ -205,15 +317,27 @@ def _extract_sex_regex(text: str) -> str:
         return "male"
     if re.search(r"\b(female|woman|lady|girl)\b", text_lower):
         return "female"
+    # Chinese
+    if re.search(r"男性|(?<!\w)男(?![孩童子])", text):
+        return "male"
+    if re.search(r"女性|(?<!\w)女(?![孩童子])", text):
+        return "female"
     return "unknown"
 
 
 def _extract_pregnancy_regex(text: str) -> bool | None:
     text_lower = text.lower()
-    if re.search(r"pregnan|gravid|gestation|\bG\dP\d\b", text_lower):
-        return True
+    # Negation must be checked BEFORE the affirmative pattern, since
+    # "not pregnant" contains the substring "pregnan".
     if re.search(r"\bnot pregnant\b", text_lower):
         return False
+    if re.search(r"pregnan|gravid|gestation|\bG\dP\d\b", text_lower):
+        return True
+    # Chinese
+    if re.search(r"未孕|非孕", text):
+        return False
+    if re.search(r"怀孕|妊娠|孕\s*\d+\s*周|产妇|孕妇", text):
+        return True
     return None
 
 
@@ -226,6 +350,15 @@ def _extract_liver_function_regex(text: str) -> str:
     if re.search(r"child.?pugh\s*a|mild hepatic|hepatitis", text_lower):
         return "mild"
     if re.search(r"normal liver|no hepatic|liver function normal", text_lower):
+        return "normal"
+    # Chinese
+    if re.search(r"重度肝|肝硬化|失代偿|肝衰竭", text):
+        return "severe"
+    if re.search(r"中度肝", text):
+        return "moderate"
+    if re.search(r"轻度肝|肝炎", text):
+        return "mild"
+    if re.search(r"肝功能正常|肝脏正常|无肝功能异常", text):
         return "normal"
     return "unknown"
 

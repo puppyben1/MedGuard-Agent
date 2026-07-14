@@ -132,4 +132,44 @@ PRESCRIPTION_GOLDEN_CASES: list[dict] = [
         ),
         "expected_findings": [],
     },
+
+    # ── Case 8 (Chinese): 二甲双胍 + 慢性肾病4期 ───────────────────
+    # Stress-tests the Chinese case_parser fallback path.
+    {
+        "id": "case_08_cn_metformin_ckd4",
+        "case_text": (
+            "68岁男性，2型糖尿病，慢性肾脏病4期。eGFR 18 mL/min/1.73m^2。"
+            "当前处方：二甲双胍 1000毫克 每日两次，格列吡嗪 5mg 每日一次。"
+            "无药物过敏史。肝功能正常。"
+        ),
+        "expected_findings": [
+            _expected("contraindication", "critical", ["metformin"], keyword="lactic acidosis"),
+        ],
+    },
+
+    # ── Case 9 (Chinese): 华法林 + 阿司匹林 + 布洛芬（三重出血风险）─
+    {
+        "id": "case_09_cn_warfarin_aspirin_ibuprofen",
+        "case_text": (
+            "74岁男性，房颤，骨关节炎。INR 3.2。"
+            "处方：华法林 5mg 每日一次，阿司匹林 81mg 每日一次，"
+            "布洛芬 600mg 每日三次 必要时。eGFR 70。无过敏。"
+        ),
+        "expected_findings": [
+            _expected("drug_interaction", "high", ["warfarin", "aspirin"], keyword="bleeding"),
+            _expected("drug_interaction", "high", ["warfarin", "ibuprofen"], keyword="GI bleeding"),
+        ],
+    },
+
+    # ── Case 10 (Chinese): 妊娠 + 赖诺普利（致畸禁忌）──────────────
+    {
+        "id": "case_10_cn_pregnancy_acei",
+        "case_text": (
+            "32岁女性，妊娠24周，高血压。处方：赖诺普利 10mg 每日一次。"
+            "无过敏。eGFR 95。肝功能正常。"
+        ),
+        "expected_findings": [
+            _expected("contraindication", "critical", ["lisinopril"], keyword="pregnan"),
+        ],
+    },
 ]

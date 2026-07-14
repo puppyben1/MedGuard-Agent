@@ -345,23 +345,57 @@ def _build_context(graded_docs: list[GradedDoc]) -> tuple[str, dict[str, str]]:
 
 
 def _match_snippet_to_doc_id(snippet: str, context: str, id_map: dict[str, str]) -> list[str]:
-    """Find doc ids whose content contains the supporting snippet (fuzzy)."""
+    """Find doc ids whose content contains the supporting snippet (fuzzy).
+
+    Uses multiple sliding anchors instead of a single prefix, so a long
+    snippet or one with leading paraphrase still matches the right doc.
+    A doc is counted as a supporter if ANY anchor window is found in it.
+    """
     if not snippet:
         return []
     snippet_norm = re.sub(r"\s+", " ", snippet.lower()).strip()
     if len(snippet_norm) < 8:
         return []
-    # Find which [doc-N | ...] block contains the snippet
+
+    # Build several candidate anchor windows from different positions of the
+    # snippet. Skip very short windows which are likely to false-match.
+    anchor_len = 30
+    anchors: list[str] = []
+    if len(snippet_norm) <= anchor_len:
+        anchors.append(snippet_norm)
+    else:
+        # Take windows from start, middle, and end to survive paraphrase at edges.
+        positions = [0, len(snippet_norm) // 2 - anchor_len // 2, len(snippet_norm) - anchor_len]
+        for pos in positions:
+            pos = max(0, min(pos, len(snippet_norm) - anchor_len))
+            anchor = snippet_norm[pos:pos + anchor_len]
+            if len(anchor) >= 12 and anchor not in anchors:
+                anchors.append(anchor)
+
+    # Tokenize snippet into significant words as a last-resort signal: if
+    # >=60% of the snippet's content words appear in a doc block, count it.
+    snippet_words = [w for w in re.findall(r"[a-z]{4,}", snippet_norm)]
+    snippet_word_set = set(snippet_words)
+
     matches: list[str] = []
     for doc_id in id_map:
-        # Re-extract doc block by id from context
         pattern = re.compile(rf"\[{re.escape(doc_id)}\s*\|.*?\]\n(.*?)(?=\n\n---|\Z)", re.DOTALL)
         block = pattern.search(context)
-        if block:
-            block_norm = re.sub(r"\s+", " ", block.group(1).lower())
-            # Match first 40 chars of snippet as a fuzzy anchor
-            anchor = snippet_norm[:40]
-            if anchor and anchor in block_norm:
+        if not block:
+            continue
+        block_norm = re.sub(r"\s+", " ", block.group(1).lower())
+
+        # Anchor match (strong signal)
+        if any(anchor in block_norm for anchor in anchors):
+            matches.append(doc_id)
+            continue
+
+        # Word-overlap fallback (weak signal) — only when snippet has enough
+        # distinctive words to avoid matching generic boilerplate.
+        if snippet_word_set:
+            block_words = set(re.findall(r"[a-z]{4,}", block_norm))
+            overlap = snippet_word_set & block_words
+            if len(snippet_word_set) >= 5 and len(overlap) / len(snippet_word_set) >= 0.6:
                 matches.append(doc_id)
     return matches
 

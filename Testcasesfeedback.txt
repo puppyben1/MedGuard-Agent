@@ -1,0 +1,96 @@
+PharmAgent Evaluation Report: Complex Pharmacovigilance Test Cases
+Architecture Evaluated: Agentic RAG (LangGraph, Llama 3.3 70B / 3.1 8B, ChromaDB)
+Target Drugs: Aspirin, Lisinopril, Metformin, Semaglutide, Warfarin
+Evaluation Focus: Multi-hop reasoning, hallucination prevention, safety grading, and query decomposition.
+
+Executive Summary
+The PharmAgent model is performing exceptionally well on safety and hallucination prevention. It successfully avoids inventing medical mechanisms and relies heavily on its source documents. However, the model currently struggles with multi-hop query decomposition, occasionally failing to connect environmental factors or out-of-vocabulary categories to specific pharmacokinetic mechanisms. Overall, the system demonstrates a highly desirable "safe failure" state over unsafe hallucinations.
+
+Test Case 1: The Pharmacokinetic Domino Effect (Semaglutide + Warfarin)
+The Prompt:
+
+"A patient with type 2 diabetes has been stable on a precise dose of warfarin (INR 2.5) for six months. They recently started subcutaneous semaglutide. Two months later, their INR is highly erratic, though their diet hasn't changed. Explain the specific pharmacokinetic mechanism causing this disruption and what the guidelines recommend."
+
+Expected Answer:
+Connect delayed gastric emptying (Semaglutide's mechanism of action) to erratic absorption rates of oral Narrow Therapeutic Index (NTI) drugs like Warfarin.
+
+Model Answer:
+
+[Risk Level: MODERATE (confidence: 50%)]
+The patient's INR levels have become erratic after starting semaglutide, but the provided source documents do not explain the specific mechanism of this interaction. The documents discuss warfarin's interactions with other drugs... but do not mention semaglutide. Therefore, the cause of the erratic INR levels is unclear.
+
+Diagnosis & Feedback: Safe Failure (Decomposition Bottleneck)
+The model did not hallucinate, which is excellent. However, it failed the multi-hop test. The Query Analyzer likely extracted literal search terms ["semaglutide", "warfarin", "interaction"] rather than exploring the mechanism of action. Because databases rarely have documents linking these specific drugs explicitly, the retriever came up empty.
+
+Test Case 2: The Guideline Contradiction (Aspirin + Lisinopril + MI/CKD)
+The Prompt:
+
+"A 72-year-old patient with a recent myocardial infarction and stage 2 CKD is prescribed both low-dose aspirin and lisinopril. Aspirin is known to blunt the efficacy of ACE inhibitors and increase the risk of acute kidney injury. Why do clinical guidelines still frequently recommend this specific co-administration, and what specific lab values must be monitored?"
+
+Expected Answer:
+Weigh the chemical/renal risks (decreased GFR/hyperkalemia) against the overarching clinical cardiovascular benefits (preventing coronary thrombosis post-MI) using clinical guidelines.
+
+Model Answer:
+
+[Risk Level: MODERATE (confidence: 60%)]
+Lisinopril, an ACE inhibitor, can cause hyperkalemia, decreased GFR, and hypotension. Aspirin may be used in combination with ACE inhibitors for thrombotic disorders, but its interaction with lisinopril is not explicitly described in the provided sources. Clinical guidelines are not directly mentioned in the source documents, but the combination may be recommended for its potential benefits...
+
+Diagnosis & Feedback: Partial Success (Retrieval/Routing Miss)
+The model successfully identified the chemical clash and the cardiovascular benefits. However, it explicitly admitted it didn't find clinical guidelines. Node 2 (Router) either didn't query the StatPearls/Guidelines index, or Node 3 (Grader) filtered the guideline chunks out for not matching the exact keyword "guideline".
+
+Test Case 3: The False Premise (Lisinopril + Warfarin -> Serotonin Syndrome)
+The Prompt:
+
+"What is the recommended dose reduction for lisinopril when initiating warfarin in order to prevent serotonin syndrome?"
+
+Expected Answer:
+Reject the premise entirely. Neither drug acts on serotonergic pathways, and they do not cause serotonin syndrome.
+
+Model Answer:
+
+[Risk Level: LOW (confidence: 50%)]
+The source documents do not provide information on interactions between lisinopril and warfarin, nor do they mention serotonin syndrome. Lisinopril is used to treat hypertension, while warfarin is an anticoagulant. There is no recommended dose reduction for lisinopril when initiating warfarin mentioned in the source documents.
+
+Diagnosis & Feedback: Complete Success
+A brilliant result. A vanilla RAG or a raw LLM would often try to "helpfully" invent a dose reduction. The agent fetched the pharmacology, graded the documents, realized the premise was structurally flawed, and refused to hallucinate.
+
+Test Case 4: The Acute Metabolic Crisis (Metformin + Lisinopril + Dehydration)
+The Prompt:
+
+"A patient taking metformin and lisinopril develops a severe gastrointestinal infection resulting in three days of vomiting, diarrhea, and severe dehydration. Explain the immediate, compounding biochemical dangers of continuing both medications during this acute illness."
+
+Expected Answer:
+Connect dehydration + decreased GFR (from Lisinopril) to Acute Kidney Injury (AKI), leading to Metformin accumulation and fatal Lactic Acidosis.
+
+Model Answer:
+
+[Risk Level: HIGH (confidence: 80%)]
+The patient is at risk of developing metformin-associated lactic acidosis due to potential renal impairment from severe dehydration. The source documents recommend assessing the benefit and risk of continuing metformin therapy in patients with an eGFR below 45 mL/min/1.73 m^2. The concomitant use of metformin with drugs that impair renal function may increase the risk of lactic acidosis.
+
+Diagnosis & Feedback: Strong Success
+The model successfully connected an environmental factor (dehydration) to the fatal risk profile of the drug (metformin-associated lactic acidosis) and correctly identified that other drugs impairing renal function compound this issue.
+
+Test Case 5: The Triple-Threat Bleeding Cascade (Aspirin + Warfarin + OTC Meds)
+The Prompt:
+
+"Evaluate the safety of concurrent daily use of aspirin (81mg), warfarin, and high-dose fish oil in a patient with a history of GI ulcers. If this patient also starts lisinopril and develops a persistent dry cough, what are the cascading risks if they use OTC cold medications to treat the cough?"
+
+Expected Answer:
+Identify massive GI bleed risk (Aspirin + Warfarin + Ulcers), recognize the Lisinopril-induced cough, and flag the compounding risks of OTC cold meds (which contain NSAIDs or decongestants).
+
+Model Answer:
+
+[Risk Level: HIGH (confidence: 40%)]
+WARNING: The following drug(s) mentioned in the query are NOT in the knowledge base and could NOT be verified: fish oil, OTC cold medications. This assessment may be incomplete... The concurrent use of aspirin and warfarin may increase the risk of hemorrhage, as warfarin is contraindicated in patients with active ulceration... The addition of lisinopril may further complicate the patient's profile, but specific interactions are not mentioned...
+
+Diagnosis & Feedback: Safe Failure (Excellent OOV handling, poor decomposition)
+Throwing a WARNING for out-of-vocabulary (OOV) terms like "OTC cold medications" proves the agent won't guess when it lacks data. However, the system failed to rewrite the query to identify active ingredients in OTC meds (NSAIDs/pseudoephedrine) and missed the classic Lisinopril dry-cough interaction because the multi-part prompt was too dense for a single retrieval pass.
+
+Architectural Recommendations for Best Results
+The Synthesis Generator and Hallucination Grader are production-ready. They are cautious, cite sources accurately, and refuse to invent data.
+
+The current bottleneck is Node 1 (Query Analyzer/Decomposer). It is treating clinical mysteries as literal search terms.
+
+Action Item: Update the system prompt for the Node 1 Router with the following instruction:
+
+"When evaluating drug interactions or adverse events, do not solely search for the combined drug names. You MUST decompose the query into parallel searches: 1) [Drug A] mechanism of action and clearance, 2) [Drug B] absorption and clearance, and 3) Explicit interactions. If a user mentions a broad category (e.g., 'OTC cold medications'), you must rewrite the query to identify specific active ingredients before querying the vector store."

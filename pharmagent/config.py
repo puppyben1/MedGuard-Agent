@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     router_rpd_limit: int = 14_400
     generator_rpd_limit: int = 1_000
 
+    # DeepSeek / OpenAI-compatible provider (used when GROQ_API_KEY is empty).
+    # DeepSeek is OpenAI-compatible; set base_url to point at any compatible endpoint.
+    deepseek_api_key: str = ""
+    deepseek_api_base: str = "https://api.deepseek.com"
+    deepseek_router_model: str = "deepseek-chat"
+    deepseek_generator_model: str = "deepseek-chat"
+
     # ChromaDB
     chroma_persist_dir: str = "./data/chromadb"
 

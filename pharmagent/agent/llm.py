@@ -1,9 +1,16 @@
-"""Groq LLM wrappers with rate-limit-aware token budget tracking."""
+"""LLM wrappers with rate-limit-aware token budget tracking.
+
+Primary provider is Groq (Llama 3.x). When GROQ_API_KEY is empty, falls back
+to any OpenAI-compatible endpoint (DeepSeek by default) configured via
+DEEPSEEK_API_KEY / DEEPSEEK_API_BASE. This lets the agent run with国产模型
+without code changes.
+"""
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 from langchain_groq import ChatGroq
 
@@ -11,6 +18,23 @@ from pharmagent.config import settings
 from pharmagent.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def _use_deepseek() -> bool:
+    """True when Groq key is absent but DeepSeek key is configured."""
+    return not settings.groq_api_key and bool(settings.deepseek_api_key)
+
+
+def _deepseek_chat(model: str, temperature: float) -> Any:
+    """Build a ChatOpenAI client pointed at the DeepSeek-compatible endpoint."""
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(
+        model=model,
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_api_base,
+        temperature=temperature,
+    )
 
 
 @dataclass
@@ -67,8 +91,14 @@ class TokenBudgetTracker:
 budget_tracker = TokenBudgetTracker()
 
 
-def get_router_llm() -> ChatGroq:
-    """Llama 3.1 8B — for routing, grading, and rewriting."""
+def get_router_llm() -> Any:
+    """Router/grader/rewriter LLM.
+
+    Uses Groq (Llama 3.1 8B) when GROQ_API_KEY is set, otherwise falls back
+    to DeepSeek (deepseek-chat) via the OpenAI-compatible interface.
+    """
+    if _use_deepseek():
+        return _deepseek_chat(settings.deepseek_router_model, 0)
     return ChatGroq(
         model=settings.router_model,
         api_key=settings.groq_api_key,
@@ -76,8 +106,14 @@ def get_router_llm() -> ChatGroq:
     )
 
 
-def get_generator_llm() -> ChatGroq:
-    """Llama 3.3 70B — for synthesis generation."""
+def get_generator_llm() -> Any:
+    """Synthesis LLM.
+
+    Uses Groq (Llama 3.3 70B) when GROQ_API_KEY is set, otherwise falls back
+    to DeepSeek (deepseek-chat) via the OpenAI-compatible interface.
+    """
+    if _use_deepseek():
+        return _deepseek_chat(settings.deepseek_generator_model, 0.1)
     if budget_tracker.generator_budget_remaining == 0:
         logger.warning("generator_budget_exhausted_falling_back_to_router_model")
         return get_router_llm()

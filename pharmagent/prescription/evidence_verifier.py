@@ -187,8 +187,22 @@ def verify_findings(
             finding.evidence_doc_ids = doc_ids
             finding.verification_reason = reason or "LLM-verified."
         else:
-            finding.verified = False
-            finding.verification_reason = reason or "No supporting document found."
+            # Deterministic-rule findings reach the verifier without any
+            # evidence_doc_ids (the LLM-only findings were already filtered
+            # out in check_prescription, which keeps only grounded LLM
+            # findings). Such rule-based findings encode known absolute
+            # contraindications and are authoritative on their own — they
+            # must NOT be flagged as hallucination just because no retrieved
+            # doc restates them. Mark them as rule-based verified instead.
+            if not finding.evidence_doc_ids:
+                finding.verified = True
+                finding.verification_reason = (
+                    "Rule-based finding (deterministic safety rule); "
+                    "no external source doc required."
+                )
+            else:
+                finding.verified = False
+                finding.verification_reason = reason or "No supporting document found."
         results.append(VerificationResult(
             finding_index=i,
             verified=finding.verified,

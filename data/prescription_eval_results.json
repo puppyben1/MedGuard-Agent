@@ -16,7 +16,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 81.728,
+      "elapsed_seconds": 49.693,
       "findings": [
         {
           "type": "contraindication",
@@ -29,12 +29,12 @@
         },
         {
           "type": "pregnancy_risk",
-          "severity": "critical",
+          "severity": "high",
           "drugs": [
             "lisinopril"
           ],
           "verified": true,
-          "description": "Lisinopril is contraindicated in pregnancy due to risk of fetal harm. The patient is pregnant, so this prescription poses a critical risk."
+          "description": "Lisinopril is contraindicated in pregnancy due to risk of fetal harm. The patient is pregnant, so this prescription poses a significant risk."
         }
       ],
       "matched_produced_idx": [
@@ -60,7 +60,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 14.959,
+      "elapsed_seconds": 13.264,
       "findings": [
         {
           "type": "contraindication",
@@ -72,14 +72,14 @@
           "description": "Metformin is contraindicated at eGFR < 30 mL/min/1.73m^2 (current eGFR 18.0) due to lactic acidosis risk."
         },
         {
-          "type": "drug_interaction",
-          "severity": "high",
+          "type": "contraindication",
+          "severity": "critical",
           "drugs": [
-            "metformin",
-            "glipizide"
+            "glipizide",
+            "metformin"
           ],
           "verified": true,
-          "description": "Coadministration of metformin with an insulin secretagogue (e.g., sulfonylurea) may increase the risk of hypoglycemia."
+          "description": "The combination product glipizide and metformin hydrochloride tablets is contraindicated in patients with severe renal impairment (eGFR below 30 mL/min/1.73 m²). The patient's eGFR is 18.0."
         }
       ],
       "matched_produced_idx": [
@@ -105,7 +105,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 4,
       "hallucination_flagged": false,
-      "elapsed_seconds": 19.419,
+      "elapsed_seconds": 20.722,
       "findings": [
         {
           "type": "drug_interaction",
@@ -129,22 +129,24 @@
           "description": "Anticoagulant + NSAID combination (aspirin, ibuprofen, warfarin) markedly increases GI bleeding risk."
         },
         {
-          "type": "dose_risk",
-          "severity": "high",
-          "drugs": [
-            "warfarin"
-          ],
-          "verified": true,
-          "description": "The patient's INR is 3.2, which is above the typical therapeutic range (2-3) for atrial fibrillation, indicating an increased risk of hemorrhage."
-        },
-        {
           "type": "contraindication",
           "severity": "high",
           "drugs": [
             "warfarin"
           ],
           "verified": true,
-          "description": "Warfarin is contraindicated in patients with hemorrhagic tendencies or active bleeding. The elevated INR of 3.2 suggests a hemorrhagic tendency."
+          "description": "Warfarin is contraindicated in patients with hemorrhagic tendencies or bleeding tendencies associated with active GI ulceration. The patient's INR of 3.2 indicates elevated bleeding risk, and concurrent NSAIDs increase GI bleeding risk."
+        },
+        {
+          "type": "monitoring_required",
+          "severity": "high",
+          "drugs": [
+            "warfarin",
+            "aspirin",
+            "ibuprofen"
+          ],
+          "verified": true,
+          "description": "Patients on warfarin with concomitant antiplatelet drugs (aspirin) and NSAIDs (ibuprofen) require monitoring for signs of bleeding due to increased risk."
         }
       ],
       "matched_produced_idx": [
@@ -172,7 +174,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 1,
       "hallucination_flagged": false,
-      "elapsed_seconds": 7.802,
+      "elapsed_seconds": 8.362,
       "findings": [
         {
           "type": "contraindication",
@@ -195,50 +197,54 @@
       "case_id": "case_05_penicillin_allergy_amoxicillin",
       "expected_count": 1,
       "produced_count": 1,
-      "tp": 0,
-      "fp": 1,
-      "fn": 1,
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1": 0.0,
-      "overall_risk": "high",
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
       "total_high_severity": 1,
       "hallucination_flagged": false,
-      "elapsed_seconds": 13.638,
+      "elapsed_seconds": 11.116,
       "findings": [
         {
           "type": "allergy_risk",
-          "severity": "high",
+          "severity": "critical",
           "drugs": [
             "amoxicillin"
           ],
           "verified": true,
-          "description": "Patient has a penicillin allergy, and amoxicillin is a penicillin-class antibiotic. The source indicates that penicillin commonly causes urticaria and Quincke's edema in patients with a positive history."
+          "description": "Patient has a penicillin allergy, and amoxicillin is contraindicated in patients with serious hypersensitivity reactions to penicillins."
         }
       ],
-      "matched_produced_idx": [],
-      "matched_expected_idx": []
+      "matched_produced_idx": [
+        0
+      ],
+      "matched_expected_idx": [
+        0
+      ]
     },
     {
       "case_id": "case_06_triple_whammy_renal",
       "expected_count": 1,
-      "produced_count": 3,
+      "produced_count": 2,
       "tp": 1,
-      "fp": 2,
+      "fp": 1,
       "fn": 0,
-      "precision": 0.333,
+      "precision": 0.5,
       "recall": 1.0,
-      "f1": 0.5,
+      "f1": 0.667,
       "overall_risk": "high",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
       "total_high_severity": 1,
       "hallucination_flagged": false,
-      "elapsed_seconds": 16.414,
+      "elapsed_seconds": 15.293,
       "findings": [
         {
           "type": "renal_risk",
@@ -252,16 +258,6 @@
         },
         {
           "type": "drug_interaction",
-          "severity": "moderate",
-          "drugs": [
-            "lisinopril",
-            "ibuprofen"
-          ],
-          "verified": true,
-          "description": "Concomitant use of lisinopril (an ACE inhibitor) and ibuprofen (an NSAID) may reduce the antihypertensive effect of lisinopril and increase the risk of renal impairment, especially in a patient with CKD stage 3a (eGFR 50)."
-        },
-        {
-          "type": "renal_risk",
           "severity": "high",
           "drugs": [
             "lisinopril",
@@ -269,7 +265,7 @@
             "hydrochlorothiazide"
           ],
           "verified": true,
-          "description": "The combination of lisinopril, ibuprofen, and hydrochlorothiazide in a patient with CKD stage 3a (eGFR 50) increases the risk of acute kidney injury due to additive effects on renal perfusion and function."
+          "description": "In elderly patients with renal impairment (CKD stage 3a, eGFR 50), co-administration of an NSAID (ibuprofen) with an ACE inhibitor (lisinopril) and a diuretic (hydrochlorothiazide) may result in deterioration of renal function, including possible acute renal failure."
         }
       ],
       "matched_produced_idx": [
@@ -295,7 +291,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 0,
       "hallucination_flagged": false,
-      "elapsed_seconds": 8.855,
+      "elapsed_seconds": 6.311,
       "findings": [],
       "matched_produced_idx": [],
       "matched_expected_idx": []
@@ -303,20 +299,20 @@
     {
       "case_id": "case_08_cn_metformin_ckd4",
       "expected_count": 1,
-      "produced_count": 1,
+      "produced_count": 2,
       "tp": 1,
-      "fp": 0,
+      "fp": 1,
       "fn": 0,
-      "precision": 1.0,
+      "precision": 0.5,
       "recall": 1.0,
-      "f1": 1.0,
+      "f1": 0.667,
       "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 1,
+      "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 12.016,
+      "elapsed_seconds": 14.271,
       "findings": [
         {
           "type": "contraindication",
@@ -326,6 +322,16 @@
           ],
           "verified": true,
           "description": "Metformin is contraindicated at eGFR < 30 mL/min/1.73m^2 (current eGFR 18.0) due to lactic acidosis risk."
+        },
+        {
+          "type": "contraindication",
+          "severity": "critical",
+          "drugs": [
+            "glipizide",
+            "metformin"
+          ],
+          "verified": true,
+          "description": "The combination product glipizide and metformin hydrochloride tablets is contraindicated in patients with severe renal impairment (eGFR below 30 mL/min/1.73 m²). The patient's eGFR is 18.0."
         }
       ],
       "matched_produced_idx": [
@@ -338,20 +344,20 @@
     {
       "case_id": "case_09_cn_warfarin_aspirin_ibuprofen",
       "expected_count": 2,
-      "produced_count": 3,
+      "produced_count": 4,
       "tp": 2,
-      "fp": 1,
+      "fp": 2,
       "fn": 0,
-      "precision": 0.667,
+      "precision": 0.5,
       "recall": 1.0,
-      "f1": 0.8,
+      "f1": 0.667,
       "overall_risk": "high",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 3,
+      "total_high_severity": 4,
       "hallucination_flagged": false,
-      "elapsed_seconds": 22.113,
+      "elapsed_seconds": 19.731,
       "findings": [
         {
           "type": "drug_interaction",
@@ -375,13 +381,22 @@
           "description": "Anticoagulant + NSAID combination (aspirin, ibuprofen, warfarin) markedly increases GI bleeding risk."
         },
         {
+          "type": "contraindication",
+          "severity": "high",
+          "drugs": [
+            "warfarin"
+          ],
+          "verified": true,
+          "description": "Warfarin is contraindicated in patients with hemorrhagic tendencies or bleeding tendencies associated with active ulceration or overt bleeding of the gastrointestinal tract. The patient's INR of 3.2 indicates elevated bleeding risk, and concurrent use of aspirin and ibuprofen further increases GI bleeding risk."
+        },
+        {
           "type": "dose_risk",
           "severity": "high",
           "drugs": [
             "warfarin"
           ],
           "verified": true,
-          "description": "The patient's INR is 3.2, which is above the typical therapeutic range (2-3) for atrial fibrillation, indicating an increased risk of hemorrhage. Warfarin use is accompanied by a significant risk of bleeding."
+          "description": "The patient's INR is 3.2, which is above the typical therapeutic range (2.0-3.0) for atrial fibrillation. This indicates an increased risk of bleeding, especially with concurrent antiplatelet and NSAID therapy."
         }
       ],
       "matched_produced_idx": [
@@ -396,20 +411,20 @@
     {
       "case_id": "case_10_cn_pregnancy_acei",
       "expected_count": 1,
-      "produced_count": 1,
+      "produced_count": 2,
       "tp": 1,
-      "fp": 0,
+      "fp": 1,
       "fn": 0,
-      "precision": 1.0,
+      "precision": 0.5,
       "recall": 1.0,
-      "f1": 1.0,
+      "f1": 0.667,
       "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 1,
+      "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 7.724,
+      "elapsed_seconds": 7.65,
       "findings": [
         {
           "type": "contraindication",
@@ -419,6 +434,15 @@
           ],
           "verified": true,
           "description": "lisinopril is teratogenic (FDA pregnancy category X) and is absolutely contraindicated during pregnancy due to fetal harm."
+        },
+        {
+          "type": "pregnancy_risk",
+          "severity": "high",
+          "drugs": [
+            "lisinopril"
+          ],
+          "verified": true,
+          "description": "Lisinopril is an ACE inhibitor and is contraindicated in pregnancy due to risk of fetal harm. The patient is pregnant, so this prescription poses a significant risk."
         }
       ],
       "matched_produced_idx": [
@@ -433,21 +457,21 @@
     "n_cases": 10,
     "n_errors": 0,
     "micro": {
-      "precision": 0.556,
-      "recall": 0.909,
-      "f1": 0.69,
-      "tp": 10,
-      "fp": 8,
-      "fn": 1
+      "precision": 0.55,
+      "recall": 1.0,
+      "f1": 0.71,
+      "tp": 11,
+      "fp": 9,
+      "fn": 0
     },
     "macro": {
       "precision": 0.65,
-      "recall": 0.9,
-      "f1": 0.73
+      "recall": 1.0,
+      "f1": 0.767
     },
     "evidence_hit_rate": 1.0,
     "hallucination_rate": 0.0,
     "avg_hallucination_rate_per_case": 0.0,
-    "avg_response_seconds": 20.467
+    "avg_response_seconds": 16.641
   }
 }

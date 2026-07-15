@@ -132,33 +132,123 @@ def get_indexed_drugs() -> set[str]:
         return set()
 
 
+# Common drug names to scan for (broader than just our index)
+COMMON_DRUGS: set[str] = {
+    "metformin", "warfarin", "lisinopril", "semaglutide", "aspirin",
+    "ibuprofen", "naproxen", "acetaminophen", "tylenol", "advil",
+    "atorvastatin", "simvastatin", "amlodipine", "omeprazole",
+    "losartan", "hydrochlorothiazide", "gabapentin", "prednisone",
+    "amoxicillin", "azithromycin", "clopidogrel", "pantoprazole",
+    "levothyroxine", "furosemide", "albuterol", "insulin",
+    "glipizide", "glyburide", "pioglitazone", "sitagliptin",
+    "empagliflozin", "dapagliflozin", "liraglutide", "dulaglutide",
+    "rosuvastatin", "pravastatin", "valsartan", "enalapril",
+    "ramipril", "captopril", "benazepril", "diltiazem", "verapamil",
+    "digoxin", "apixaban", "rivaroxaban", "dabigatran", "heparin",
+    "enoxaparin", "phenytoin", "carbamazepine", "valproic acid",
+    "lithium", "sertraline", "fluoxetine", "escitalopram",
+    "duloxetine", "bupropion", "tramadol", "morphine", "oxycodone",
+    "hydrocodone", "fentanyl", "diazepam", "lorazepam", "alprazolam",
+    "coumadin", "plavix", "eliquis", "xarelto", "penicillin",
+    "celecoxib", "metoprolol",
+}
+
+# Chinese → English drug name map so Chinese queries are not
+# mistakenly rejected as out-of-index, and so the retrieval pipeline
+# (which indexes English FDA labels) can match Chinese drug names.
+CN_DRUG_MAP: dict[str, str] = {
+    "二甲双胍": "metformin", "格华止": "metformin",
+    "华法林": "warfarin",
+    "赖诺普利": "lisinopril",
+    "司美格鲁肽": "semaglutide", "诺和泰": "semaglutide",
+    "阿司匹林": "aspirin", "拜阿": "aspirin",
+    "布洛芬": "ibuprofen",
+    "萘普生": "naproxen",
+    "对乙酰氨基酚": "acetaminophen", "扑热息痛": "acetaminophen", "泰诺": "acetaminophen",
+    "阿托伐他汀": "atorvastatin", "立普妥": "atorvastatin",
+    "辛伐他汀": "simvastatin",
+    "氨氯地平": "amlodipine", "络活喜": "amlodipine",
+    "奥美拉唑": "omeprazole",
+    "氯沙坦": "losartan",
+    "氢氯噻嗪": "hydrochlorothiazide",
+    "加巴喷丁": "gabapentin",
+    "泼尼松": "prednisone",
+    "阿莫西林": "amoxicillin", "阿莫仙": "amoxicillin",
+    "阿奇霉素": "azithromycin",
+    "氯吡格雷": "clopidogrel", "波立维": "clopidogrel",
+    "泮托拉唑": "pantoprazole",
+    "左甲状腺素": "levothyroxine", "优甲乐": "levothyroxine",
+    "呋塞米": "furosemide", "速尿": "furosemide",
+    "胰岛素": "insulin",
+    "格列吡嗪": "glipizide",
+    "格列本脲": "glyburide",
+    "恩格列净": "empagliflozin",
+    "利拉鲁肽": "liraglutide",
+    "瑞舒伐他汀": "rosuvastatin",
+    "缬沙坦": "valsartan",
+    "依那普利": "enalapril",
+    "雷米普利": "ramipril",
+    "地尔硫卓": "diltiazem",
+    "维拉帕米": "verapamil",
+    "地高辛": "digoxin",
+    "阿哌沙班": "apixaban",
+    "利伐沙班": "rivaroxaban",
+    "达比加群": "dabigatran",
+    "肝素": "heparin",
+    "依诺肝素": "enoxaparin",
+    "碳酸锂": "lithium", "锂盐": "lithium",
+    "舍曲林": "sertraline",
+    "氟西汀": "fluoxetine",
+    "曲马多": "tramadol",
+    "青霉素": "penicillin",
+    "塞来昔布": "celecoxib",
+    "美托洛尔": "metoprolol",
+}
+
+# Chinese clinical terms → English for retrieval compatibility
+CN_CLINICAL_TERMS: dict[str, str] = {
+    "禁忌症": "contraindications",
+    "禁忌": "contraindications",
+    "不良反应": "adverse effects",
+    "副作用": "side effects",
+    "相互作用": "drug interactions",
+    "肾功能": "renal function",
+    "肝功能": "hepatic function",
+    "妊娠": "pregnancy",
+    "孕妇": "pregnancy",
+    "哺乳": "lactation",
+    "剂量": "dosage",
+    "用法": "administration",
+    "警告": "warnings",
+    "过敏": "allergy",
+    "出血风险": "bleeding risk",
+}
+
+
+def normalize_query_language(query: str) -> str:
+    """Translate Chinese drug names and clinical terms in a query to English
+    so the retrieval pipeline (which indexes English FDA labels) can match.
+    """
+    if not query:
+        return query
+    result = query
+    # Replace longer Chinese terms first to avoid partial overlaps.
+    for cn, en in sorted(CN_DRUG_MAP.items(), key=lambda x: -len(x[0])):
+        if cn in result:
+            result = result.replace(cn, en)
+    for cn, en in sorted(CN_CLINICAL_TERMS.items(), key=lambda x: -len(x[0])):
+        if cn in result:
+            result = result.replace(cn, en)
+    return result
+
+
 def extract_drug_names_from_query(query: str, known_drugs: set[str]) -> tuple[list[str], list[str]]:
     """Extract drug names from the query by matching against known indexed drugs
     and common drug names/patterns.
 
     Returns (found_drugs, missing_drugs).
     """
-    query_lower = query.lower()
-
-    # Common drug names to scan for (broader than just our index)
-    COMMON_DRUGS = {
-        "metformin", "warfarin", "lisinopril", "semaglutide", "aspirin",
-        "ibuprofen", "naproxen", "acetaminophen", "tylenol", "advil",
-        "atorvastatin", "simvastatin", "amlodipine", "omeprazole",
-        "losartan", "hydrochlorothiazide", "gabapentin", "prednisone",
-        "amoxicillin", "azithromycin", "clopidogrel", "pantoprazole",
-        "levothyroxine", "furosemide", "albuterol", "insulin",
-        "glipizide", "glyburide", "pioglitazone", "sitagliptin",
-        "empagliflozin", "dapagliflozin", "liraglutide", "dulaglutide",
-        "rosuvastatin", "pravastatin", "valsartan", "enalapril",
-        "ramipril", "captopril", "benazepril", "diltiazem", "verapamil",
-        "digoxin", "apixaban", "rivaroxaban", "dabigatran", "heparin",
-        "enoxaparin", "phenytoin", "carbamazepine", "valproic acid",
-        "lithium", "sertraline", "fluoxetine", "escitalopram",
-        "duloxetine", "bupropion", "tramadol", "morphine", "oxycodone",
-        "hydrocodone", "fentanyl", "diazepam", "lorazepam", "alprazolam",
-        "coumadin", "plavix", "eliquis", "xarelto",
-    }
+    query_lower = normalize_query_language(query).lower()
 
     all_known = known_drugs | COMMON_DRUGS
 
@@ -166,8 +256,10 @@ def extract_drug_names_from_query(query: str, known_drugs: set[str]) -> tuple[li
     missing_from_index: list[str] = []
 
     for drug in all_known:
-        # Word-boundary match to avoid false positives
-        pattern = re.compile(rf"\b{re.escape(drug)}\b", re.IGNORECASE)
+        # ASCII-letter boundary (not Unicode \b, which treats CJK as \w and
+        # breaks matches like "metformin的"). Ensures the drug name is not a
+        # substring of a longer English word while still matching next to CJK.
+        pattern = re.compile(rf"(?<![a-z]){re.escape(drug)}(?![a-z])", re.IGNORECASE)
         if pattern.search(query_lower):
             if drug.lower() in known_drugs:
                 found_in_index.append(drug)

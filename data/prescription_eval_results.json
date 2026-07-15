@@ -16,7 +16,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 49.693,
+      "elapsed_seconds": 54.104,
       "findings": [
         {
           "type": "contraindication",
@@ -25,16 +25,16 @@
             "lisinopril"
           ],
           "verified": true,
-          "description": "lisinopril is teratogenic (FDA pregnancy category X) and is absolutely contraindicated during pregnancy due to fetal harm."
+          "description": "lisinopril 具致畸性（FDA 妊娠分级 X），妊娠期绝对禁用，可能导致胎儿肾脏发育不良、颅骨骨化不全等严重伤害。"
         },
         {
           "type": "pregnancy_risk",
-          "severity": "high",
+          "severity": "critical",
           "drugs": [
             "lisinopril"
           ],
           "verified": true,
-          "description": "Lisinopril is contraindicated in pregnancy due to risk of fetal harm. The patient is pregnant, so this prescription poses a significant risk."
+          "description": "Lisinopril 在妊娠期禁用，因其可能导致胎儿肾发育不良、羊水过少及新生儿肾功能障碍。"
         }
       ],
       "matched_produced_idx": [
@@ -47,20 +47,20 @@
     {
       "case_id": "case_02_metformin_severe_ckd",
       "expected_count": 1,
-      "produced_count": 2,
+      "produced_count": 3,
       "tp": 1,
-      "fp": 1,
+      "fp": 2,
       "fn": 0,
-      "precision": 0.5,
+      "precision": 0.333,
       "recall": 1.0,
-      "f1": 0.667,
+      "f1": 0.5,
       "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 2,
+      "total_high_severity": 3,
       "hallucination_flagged": false,
-      "elapsed_seconds": 13.264,
+      "elapsed_seconds": 12.744,
       "findings": [
         {
           "type": "contraindication",
@@ -69,17 +69,27 @@
             "metformin"
           ],
           "verified": true,
-          "description": "Metformin is contraindicated at eGFR < 30 mL/min/1.73m^2 (current eGFR 18.0) due to lactic acidosis risk."
+          "description": "二甲双胍在 eGFR < 30 mL/min/1.73m^2 时禁用（当前 eGFR 18.0），因可诱发乳酸酸中毒，死亡率高达 50%。"
         },
         {
           "type": "contraindication",
           "severity": "critical",
           "drugs": [
-            "glipizide",
-            "metformin"
+            "metformin",
+            "glipizide"
           ],
           "verified": true,
-          "description": "The combination product glipizide and metformin hydrochloride tablets is contraindicated in patients with severe renal impairment (eGFR below 30 mL/min/1.73 m²). The patient's eGFR is 18.0."
+          "description": "患者eGFR为18.0 mL/min/1.73 m²，低于30 mL/min/1.73 m²，属于严重肾功能损害，二甲双胍和格列吡嗪复方制剂均明确禁忌使用。"
+        },
+        {
+          "type": "renal_risk",
+          "severity": "high",
+          "drugs": [
+            "metformin",
+            "glipizide"
+          ],
+          "verified": true,
+          "description": "患者eGFR为18.0 mL/min/1.73 m²，低于45 mL/min/1.73 m²，继续使用二甲双胍和格列吡嗪复方制剂需评估风险，且eGFR低于30时已属禁忌。"
         }
       ],
       "matched_produced_idx": [
@@ -92,20 +102,20 @@
     {
       "case_id": "case_03_warfarin_aspirin_ibuprofen",
       "expected_count": 2,
-      "produced_count": 4,
+      "produced_count": 3,
       "tp": 2,
-      "fp": 2,
+      "fp": 1,
       "fn": 0,
-      "precision": 0.5,
+      "precision": 0.667,
       "recall": 1.0,
-      "f1": 0.667,
+      "f1": 0.8,
       "overall_risk": "high",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 4,
+      "total_high_severity": 3,
       "hallucination_flagged": false,
-      "elapsed_seconds": 20.722,
+      "elapsed_seconds": 17.206,
       "findings": [
         {
           "type": "drug_interaction",
@@ -115,7 +125,7 @@
             "warfarin"
           ],
           "verified": true,
-          "description": "Anticoagulant + antiplatelet combination (aspirin, warfarin) significantly increases bleeding risk."
+          "description": "抗凝药 + 抗血小板药联用（aspirin, warfarin），显著增加大出血风险（HR≈2-3）。"
         },
         {
           "type": "drug_interaction",
@@ -126,16 +136,7 @@
             "warfarin"
           ],
           "verified": true,
-          "description": "Anticoagulant + NSAID combination (aspirin, ibuprofen, warfarin) markedly increases GI bleeding risk."
-        },
-        {
-          "type": "contraindication",
-          "severity": "high",
-          "drugs": [
-            "warfarin"
-          ],
-          "verified": true,
-          "description": "Warfarin is contraindicated in patients with hemorrhagic tendencies or bleeding tendencies associated with active GI ulceration. The patient's INR of 3.2 indicates elevated bleeding risk, and concurrent NSAIDs increase GI bleeding risk."
+          "description": "抗凝药 + NSAID 联用（aspirin, ibuprofen, warfarin），显著增加消化道出血风险（OR≈4-6）。"
         },
         {
           "type": "monitoring_required",
@@ -146,7 +147,7 @@
             "ibuprofen"
           ],
           "verified": true,
-          "description": "Patients on warfarin with concomitant antiplatelet drugs (aspirin) and NSAIDs (ibuprofen) require monitoring for signs of bleeding due to increased risk."
+          "description": "患者INR为3.2，已超出治疗范围，联合使用抗血小板药和NSAID进一步增加出血风险。"
         }
       ],
       "matched_produced_idx": [
@@ -161,20 +162,20 @@
     {
       "case_id": "case_04_semaglutide_mtc",
       "expected_count": 1,
-      "produced_count": 1,
+      "produced_count": 3,
       "tp": 1,
-      "fp": 0,
+      "fp": 2,
       "fn": 0,
-      "precision": 1.0,
+      "precision": 0.333,
       "recall": 1.0,
-      "f1": 1.0,
+      "f1": 0.5,
       "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 1,
+      "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 8.362,
+      "elapsed_seconds": 9.794,
       "findings": [
         {
           "type": "contraindication",
@@ -183,7 +184,25 @@
             "semaglutide"
           ],
           "verified": true,
-          "description": "semaglutide carries a black box warning for thyroid C-cell tumors and is contraindicated in personal/family history of MTC or MEN 2."
+          "description": "semaglutide 带 FDA 黑框警告：可引起甲状腺 C 细胞肿瘤，个人或家族 MTC/MEN 2 病史者绝对禁用。"
+        },
+        {
+          "type": "allergy_risk",
+          "severity": "high",
+          "drugs": [
+            "semaglutide"
+          ],
+          "verified": true,
+          "description": "患者若对semaglutide或其任何辅料有严重过敏反应史（包括过敏反应和血管性水肿），则禁用该药。"
+        },
+        {
+          "type": "monitoring_required",
+          "severity": "moderate",
+          "drugs": [
+            "semaglutide"
+          ],
+          "verified": true,
+          "description": "semaglutide可能引起严重胃肠道不良反应、糖尿病视网膜病变并发症、心率增快及全身麻醉或深度镇静时的肺吸入风险。"
         }
       ],
       "matched_produced_idx": [
@@ -197,54 +216,50 @@
       "case_id": "case_05_penicillin_allergy_amoxicillin",
       "expected_count": 1,
       "produced_count": 1,
-      "tp": 1,
-      "fp": 0,
-      "fn": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "overall_risk": "critical",
-      "evidence_hit_rate": 1.0,
-      "hallucination_rate": 0.0,
-      "unverified_high_severity": 0,
-      "total_high_severity": 1,
-      "hallucination_flagged": false,
-      "elapsed_seconds": 11.116,
-      "findings": [
-        {
-          "type": "allergy_risk",
-          "severity": "critical",
-          "drugs": [
-            "amoxicillin"
-          ],
-          "verified": true,
-          "description": "Patient has a penicillin allergy, and amoxicillin is contraindicated in patients with serious hypersensitivity reactions to penicillins."
-        }
-      ],
-      "matched_produced_idx": [
-        0
-      ],
-      "matched_expected_idx": [
-        0
-      ]
-    },
-    {
-      "case_id": "case_06_triple_whammy_renal",
-      "expected_count": 1,
-      "produced_count": 2,
-      "tp": 1,
+      "tp": 0,
       "fp": 1,
-      "fn": 0,
-      "precision": 0.5,
-      "recall": 1.0,
-      "f1": 0.667,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
       "overall_risk": "high",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
       "total_high_severity": 1,
       "hallucination_flagged": false,
-      "elapsed_seconds": 15.293,
+      "elapsed_seconds": 10.927,
+      "findings": [
+        {
+          "type": "allergy_risk",
+          "severity": "high",
+          "drugs": [
+            "amoxicillin"
+          ],
+          "verified": true,
+          "description": "患者有青霉素过敏史，而阿莫西林属于β-内酰胺类抗菌药物，说明书明确禁止用于对本品或其他β-内酰胺类药物（如青霉素、头孢菌素）有严重过敏反应史的患者。"
+        }
+      ],
+      "matched_produced_idx": [],
+      "matched_expected_idx": []
+    },
+    {
+      "case_id": "case_06_triple_whammy_renal",
+      "expected_count": 1,
+      "produced_count": 4,
+      "tp": 1,
+      "fp": 3,
+      "fn": 0,
+      "precision": 0.25,
+      "recall": 1.0,
+      "f1": 0.4,
+      "overall_risk": "high",
+      "evidence_hit_rate": 1.0,
+      "hallucination_rate": 0.0,
+      "unverified_high_severity": 0,
+      "total_high_severity": 3,
+      "hallucination_flagged": false,
+      "elapsed_seconds": 16.421,
       "findings": [
         {
           "type": "renal_risk",
@@ -254,18 +269,39 @@
             "lisinopril"
           ],
           "verified": true,
-          "description": "Triple-whammy-like renal insult: NSAID + ACE inhibitor/ARB with eGFR 50.0 (AKI risk)."
+          "description": "Triple-whammy 样肾损伤：NSAID + ACEI/ARB 联用合并 eGFR 50.0，急性肾损伤（AKI）风险显著升高。"
         },
         {
           "type": "drug_interaction",
           "severity": "high",
           "drugs": [
             "lisinopril",
+            "ibuprofen"
+          ],
+          "verified": true,
+          "description": "根据源文档，在老年、容量不足（包括使用利尿剂）或肾功能不全患者中，同时使用NSAID（如布洛芬）与ACE抑制剂（如赖诺普利）可能导致肾功能恶化，包括可能的急性肾衰竭。"
+        },
+        {
+          "type": "drug_interaction",
+          "severity": "high",
+          "drugs": [
+            "lisinopril",
+            "hydrochlorothiazide",
+            "ibuprofen"
+          ],
+          "verified": true,
+          "description": "患者同时使用ACE抑制剂（赖诺普利）、利尿剂（氢氯噻嗪）和NSAID（布洛芬），这种三联用药在肾功能不全患者中显著增加急性肾损伤风险。"
+        },
+        {
+          "type": "renal_risk",
+          "severity": "high",
+          "drugs": [
             "ibuprofen",
+            "lisinopril",
             "hydrochlorothiazide"
           ],
           "verified": true,
-          "description": "In elderly patients with renal impairment (CKD stage 3a, eGFR 50), co-administration of an NSAID (ibuprofen) with an ACE inhibitor (lisinopril) and a diuretic (hydrochlorothiazide) may result in deterioration of renal function, including possible acute renal failure."
+          "description": "患者eGFR为50.0 mL/min（CKD 3a期），属于肾功能不全，同时使用NSAID、ACE抑制剂和利尿剂，进一步增加肾损伤风险。"
         }
       ],
       "matched_produced_idx": [
@@ -291,7 +327,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 0,
       "hallucination_flagged": false,
-      "elapsed_seconds": 6.311,
+      "elapsed_seconds": 5.767,
       "findings": [],
       "matched_produced_idx": [],
       "matched_expected_idx": []
@@ -299,20 +335,20 @@
     {
       "case_id": "case_08_cn_metformin_ckd4",
       "expected_count": 1,
-      "produced_count": 2,
+      "produced_count": 3,
       "tp": 1,
-      "fp": 1,
+      "fp": 2,
       "fn": 0,
-      "precision": 0.5,
+      "precision": 0.333,
       "recall": 1.0,
-      "f1": 0.667,
+      "f1": 0.5,
       "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 2,
+      "total_high_severity": 3,
       "hallucination_flagged": false,
-      "elapsed_seconds": 14.271,
+      "elapsed_seconds": 13.476,
       "findings": [
         {
           "type": "contraindication",
@@ -321,7 +357,7 @@
             "metformin"
           ],
           "verified": true,
-          "description": "Metformin is contraindicated at eGFR < 30 mL/min/1.73m^2 (current eGFR 18.0) due to lactic acidosis risk."
+          "description": "二甲双胍在 eGFR < 30 mL/min/1.73m^2 时禁用（当前 eGFR 18.0），因可诱发乳酸酸中毒，死亡率高达 50%。"
         },
         {
           "type": "contraindication",
@@ -331,7 +367,16 @@
             "metformin"
           ],
           "verified": true,
-          "description": "The combination product glipizide and metformin hydrochloride tablets is contraindicated in patients with severe renal impairment (eGFR below 30 mL/min/1.73 m²). The patient's eGFR is 18.0."
+          "description": "患者eGFR为18.0 mL/min/1.73 m²，低于30，格列吡嗪和二甲双胍复方制剂禁忌用于严重肾功能损害患者。"
+        },
+        {
+          "type": "renal_risk",
+          "severity": "high",
+          "drugs": [
+            "glipizide"
+          ],
+          "verified": true,
+          "description": "患者eGFR为18.0 mL/min/1.73 m²，低于30，格列吡嗪在严重肾功能损害患者中使用需谨慎，可能增加低血糖风险。"
         }
       ],
       "matched_produced_idx": [
@@ -344,20 +389,20 @@
     {
       "case_id": "case_09_cn_warfarin_aspirin_ibuprofen",
       "expected_count": 2,
-      "produced_count": 4,
+      "produced_count": 5,
       "tp": 2,
-      "fp": 2,
+      "fp": 3,
       "fn": 0,
-      "precision": 0.5,
+      "precision": 0.4,
       "recall": 1.0,
-      "f1": 0.667,
-      "overall_risk": "high",
+      "f1": 0.571,
+      "overall_risk": "critical",
       "evidence_hit_rate": 1.0,
       "hallucination_rate": 0.0,
       "unverified_high_severity": 0,
-      "total_high_severity": 4,
+      "total_high_severity": 5,
       "hallucination_flagged": false,
-      "elapsed_seconds": 19.731,
+      "elapsed_seconds": 19.552,
       "findings": [
         {
           "type": "drug_interaction",
@@ -367,7 +412,7 @@
             "warfarin"
           ],
           "verified": true,
-          "description": "Anticoagulant + antiplatelet combination (aspirin, warfarin) significantly increases bleeding risk."
+          "description": "抗凝药 + 抗血小板药联用（aspirin, warfarin），显著增加大出血风险（HR≈2-3）。"
         },
         {
           "type": "drug_interaction",
@@ -378,25 +423,38 @@
             "warfarin"
           ],
           "verified": true,
-          "description": "Anticoagulant + NSAID combination (aspirin, ibuprofen, warfarin) markedly increases GI bleeding risk."
+          "description": "抗凝药 + NSAID 联用（aspirin, ibuprofen, warfarin），显著增加消化道出血风险（OR≈4-6）。"
         },
         {
-          "type": "contraindication",
-          "severity": "high",
+          "type": "drug_interaction",
+          "severity": "critical",
           "drugs": [
-            "warfarin"
+            "warfarin",
+            "ibuprofen"
           ],
           "verified": true,
-          "description": "Warfarin is contraindicated in patients with hemorrhagic tendencies or bleeding tendencies associated with active ulceration or overt bleeding of the gastrointestinal tract. The patient's INR of 3.2 indicates elevated bleeding risk, and concurrent use of aspirin and ibuprofen further increases GI bleeding risk."
+          "description": "根据源文档，ibuprofen（一种NSAID）与warfarin合用可增加严重出血风险，因为两者对止血有协同作用。"
         },
         {
-          "type": "dose_risk",
+          "type": "drug_interaction",
           "severity": "high",
           "drugs": [
-            "warfarin"
+            "ibuprofen",
+            "aspirin"
           ],
           "verified": true,
-          "description": "The patient's INR is 3.2, which is above the typical therapeutic range (2.0-3.0) for atrial fibrillation. This indicates an increased risk of bleeding, especially with concurrent antiplatelet and NSAID therapy."
+          "description": "源文档显示，NSAID与aspirin合用可显著增加胃肠道不良反应的发生率，且无额外治疗益处。"
+        },
+        {
+          "type": "monitoring_required",
+          "severity": "high",
+          "drugs": [
+            "warfarin",
+            "aspirin",
+            "ibuprofen"
+          ],
+          "verified": true,
+          "description": "患者INR为3.2，已超出治疗范围，且同时使用warfarin、aspirin和ibuprofen，显著增加出血风险。"
         }
       ],
       "matched_produced_idx": [
@@ -424,7 +482,7 @@
       "unverified_high_severity": 0,
       "total_high_severity": 2,
       "hallucination_flagged": false,
-      "elapsed_seconds": 7.65,
+      "elapsed_seconds": 7.731,
       "findings": [
         {
           "type": "contraindication",
@@ -433,7 +491,7 @@
             "lisinopril"
           ],
           "verified": true,
-          "description": "lisinopril is teratogenic (FDA pregnancy category X) and is absolutely contraindicated during pregnancy due to fetal harm."
+          "description": "lisinopril 具致畸性（FDA 妊娠分级 X），妊娠期绝对禁用，可能导致胎儿肾脏发育不良、颅骨骨化不全等严重伤害。"
         },
         {
           "type": "pregnancy_risk",
@@ -442,7 +500,7 @@
             "lisinopril"
           ],
           "verified": true,
-          "description": "Lisinopril is an ACE inhibitor and is contraindicated in pregnancy due to risk of fetal harm. The patient is pregnant, so this prescription poses a significant risk."
+          "description": "Lisinopril 在妊娠期禁用，因其可能导致胎儿损害。"
         }
       ],
       "matched_produced_idx": [
@@ -457,21 +515,21 @@
     "n_cases": 10,
     "n_errors": 0,
     "micro": {
-      "precision": 0.55,
-      "recall": 1.0,
-      "f1": 0.71,
-      "tp": 11,
-      "fp": 9,
-      "fn": 0
+      "precision": 0.385,
+      "recall": 0.909,
+      "f1": 0.541,
+      "tp": 10,
+      "fp": 16,
+      "fn": 1
     },
     "macro": {
-      "precision": 0.65,
-      "recall": 1.0,
-      "f1": 0.767
+      "precision": 0.432,
+      "recall": 0.9,
+      "f1": 0.56
     },
     "evidence_hit_rate": 1.0,
     "hallucination_rate": 0.0,
     "avg_hallucination_rate_per_case": 0.0,
-    "avg_response_seconds": 16.641
+    "avg_response_seconds": 16.772
   }
 }

@@ -18,7 +18,10 @@ _cross_encoder: CrossEncoder | None = None
 def _get_cross_encoder() -> CrossEncoder:
     global _cross_encoder
     if _cross_encoder is None:
-        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+        _cross_encoder = CrossEncoder(
+            "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            local_files_only=True,
+        )
     return _cross_encoder
 
 

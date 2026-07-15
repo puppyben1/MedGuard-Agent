@@ -34,6 +34,14 @@ from pharmagent.core.hybrid_retriever import hybrid_search
 from pharmagent.core.schemas import RetrievedDoc
 from pharmagent.logging_config import get_logger
 from pharmagent.prescription.case_parser import parse_case
+from pharmagent.prescription.cn_labels import (
+    cn_drug_name,
+    cn_sex,
+    cn_hepatic,
+    cn_diagnosis,
+    FINDING_TYPE_CN,
+    SEVERITY_CN,
+)
 from pharmagent.prescription.evidence_verifier import verify_findings
 from pharmagent.prescription.prescription_checker import check_prescription
 from pharmagent.prescription.schemas import (
@@ -216,24 +224,65 @@ def _overall_risk(findings) -> str:
 
 
 def _build_summary(case: PatientCase, findings) -> str:
+    """Build a detailed Chinese summary of the prescription review."""
+    drug_names = [cn_drug_name(d.name) for d in case.drugs] or ["未知药物"]
+    drug_str = "、".join(drug_names)
+
+    # Patient profile line (all Chinese)
+    sex_cn = cn_sex(case.sex)
+    age_sex = f"{case.age}岁{sex_cn}" if case.age else sex_cn
+    profile_parts = [f"患者：{age_sex}"]
+    if case.egfr is not None:
+        profile_parts.append(f"eGFR {case.egfr}")
+    if case.liver_function and case.liver_function != "unknown":
+        profile_parts.append(f"肝功能{cn_hepatic(case.liver_function)}")
+    if case.inr is not None:
+        profile_parts.append(f"INR {case.inr}")
+    if case.pregnancy:
+        profile_parts.append("妊娠中")
+    if case.allergies:
+        profile_parts.append(f"过敏史: {', '.join(case.allergies)}")
+    profile = "，".join(profile_parts)
+
     if not findings:
         return (
-            f"No risk findings identified for {case.age or '?'}y {case.sex} patient "
-            f"on {len(case.drugs)} drug(s). Deterministic rules and retrieved evidence "
-            f"did not surface contraindications or interactions."
+            f"{profile}。当前处方：{drug_str}。\n\n"
+            f"✅ 经确定性安全规则与检索证据审查，未发现用药风险或禁忌。"
+            f"处方药物与患者状况（肾功能、肝功能、妊娠状态、过敏史）之间未检出相互作用或绝对禁忌。"
         )
+
     n_critical = sum(1 for f in findings if f.severity == "critical")
     n_high = sum(1 for f in findings if f.severity == "high")
-    parts = [
-        f"Prescription review identified {len(findings)} finding(s) "
-        f"for {case.age or '?'}y {case.sex} patient "
-        f"(eGFR {case.egfr}, liver {case.liver_function})."
-    ]
+    n_other = len(findings) - n_critical - n_high
+
+    # Risk overview (all Chinese)
+    risk_parts = [f"⚠️ 处方审查发现 {len(findings)} 项风险"]
     if n_critical:
-        parts.append(f"{n_critical} CRITICAL finding(s) require immediate action.")
+        risk_parts.append(f"其中 {n_critical} 项严重（需立即干预）")
     if n_high:
-        parts.append(f"{n_high} HIGH-severity finding(s) need clinician review.")
-    return " ".join(parts)
+        risk_parts.append(f"{n_high} 项高（需临床评估）")
+    if n_other:
+        risk_parts.append(f"{n_other} 项其他")
+    risk_overview = "，".join(risk_parts) + "。"
+
+    # Per-finding detail (Chinese type labels and drug names)
+    finding_lines = []
+    for i, f in enumerate(findings, 1):
+        sev_label = SEVERITY_CN.get(f.severity, f.severity)
+        type_label = FINDING_TYPE_CN.get(f.finding_type, f.finding_type)
+        drugs = "、".join(cn_drug_name(d) for d in f.drugs_involved) if f.drugs_involved else "—"
+        line = f"  {i}. [{sev_label}] {type_label} — 涉及药物：{drugs}\n     {f.description}"
+        if f.recommendation:
+            line += f"\n     建议：{f.recommendation}"
+        verified_tag = "✅ 已验证" if f.verified else "⚠️ 未验证"
+        line += f"\n     证据状态：{verified_tag}"
+        finding_lines.append(line)
+
+    return (
+        f"{profile}。当前处方：{drug_str}。\n\n"
+        f"{risk_overview}\n\n"
+        + "\n\n".join(finding_lines)
+    )
 
 
 def compile_report_node(state: PrescriptionState) -> dict:
@@ -254,17 +303,68 @@ def compile_report_node(state: PrescriptionState) -> dict:
         if v.finding_index < len(findings)
     )
 
-    # Citations: collect metadata from graded docs that backed any finding
+    # Citations: list all relevant graded docs (broader evidence trail).
+    # Prioritize docs that backed a finding, then fill with other relevant docs.
+    # Each citation includes: source (Chinese label) + drug + section + title
+    # (when available) + a short content excerpt for traceability.
+    SOURCE_CN = {
+        "pubmed": "PubMed 文献",
+        "dailymed": "FDA 药品说明书 (DailyMed)",
+        "statpearls": "StatPearls 临床指南",
+        "textbooks": "医学教科书",
+    }
+    SECTION_CN = {
+        "warnings": "警告",
+        "drug_interactions": "药物相互作用",
+        "adverse_reactions": "不良反应",
+        "contraindications": "禁忌症",
+        "dosage_and_administration": "用法用量",
+        "description": "药品描述",
+        "warnings_and_precautions": "警告与注意事项",
+    }
     cited_doc_ids: set[str] = set()
     for v in verifications:
         for did in v.supporting_doc_ids:
             cited_doc_ids.add(did)
-    citations: list[str] = []
-    for i, gd in enumerate([g for g in graded_docs if g.is_relevant][:20], start=1):
+
+    # Include all retrieved docs (both relevant and not), up to 30.
+    # Sort: relevant first, then PubMed (which has titles), then others.
+    relevant_docs = sorted(
+        graded_docs,
+        key=lambda g: (
+            not g.is_relevant,            # relevant docs first
+            g.doc.metadata.get("source", "") != "pubmed",  # PubMed second
+        ),
+    )[:30]
+    backed = []
+    other = []
+    for i, gd in enumerate(relevant_docs, start=1):
         doc_id = f"doc-{i}"
+        meta = gd.doc.metadata
+        source_raw = meta.get("source", "unknown")
+        source = SOURCE_CN.get(source_raw, source_raw)
+        drug = meta.get("drug_name", "")
+        section_raw = meta.get("section", "")
+        section = SECTION_CN.get(section_raw, section_raw)
+        title = meta.get("title", "").strip()
+        # Build a informative citation: source + drug + section + title + excerpt
+        parts = [f"[{doc_id}] {source}"]
+        if drug:
+            parts.append(f"药物：{cn_drug_name(drug)}")
+        if section:
+            parts.append(f"章节：{section}")
+        if title:
+            # PubMed articles can have long titles; truncate for readability.
+            title_short = title if len(title) <= 120 else title[:117] + "..."
+            parts.append(f"标题：{title_short}")
+        header = " | ".join(parts)
+        excerpt = gd.doc.content[:140].replace("\n", " ").strip()
+        entry = f"{header}\n     摘录：{excerpt}..."
         if doc_id in cited_doc_ids:
-            meta = gd.doc.metadata
-            citations.append(f"[{doc_id}] {meta.get('source', 'unknown')} - {meta.get('drug_name', '')} ({meta.get('section', '')})")
+            backed.append(entry)
+        else:
+            other.append(entry)
+    citations = backed + other
 
     confidence = 0.0
     if total:

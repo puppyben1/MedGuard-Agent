@@ -24,6 +24,7 @@ from pharmagent.prescription.schemas import (
     PatientCase,
     PrescriptionFinding,
 )
+from pharmagent.prescription.cn_labels import cn_drug_name, cn_hepatic
 
 logger = get_logger(__name__)
 
@@ -67,10 +68,10 @@ def _rule_pregnancy_teratogen(case: PatientCase) -> list[PrescriptionFinding]:
             severity="critical",
             drugs_involved=[drug],
             description=(
-                f"{drug} is teratogenic (FDA pregnancy category X) and is absolutely "
-                f"contraindicated during pregnancy due to fetal harm."
+                f"{cn_drug_name(drug)} 具致畸性（FDA 妊娠分级 X），妊娠期绝对禁用，"
+                f"可能导致胎儿肾脏发育不良、颅骨骨化不全等严重伤害。"
             ),
-            recommendation="Discontinue immediately and switch to a pregnancy-safe alternative; involve obstetrics.",
+            recommendation="立即停药并更换为妊娠期安全替代方案（如甲基多巴/拉贝洛尔），并请产科会诊评估。",
         ))
     return findings
 
@@ -86,10 +87,10 @@ def _rule_metformin_renal(case: PatientCase) -> list[PrescriptionFinding]:
             severity="critical",
             drugs_involved=["metformin"],
             description=(
-                f"Metformin is contraindicated at eGFR < 30 mL/min/1.73m^2 "
-                f"(current eGFR {case.egfr}) due to lactic acidosis risk."
+                f"二甲双胍在 eGFR < 30 mL/min/1.73m^2 时禁用（当前 eGFR {case.egfr}），"
+                f"因可诱发乳酸酸中毒，死亡率高达 50%。"
             ),
-            recommendation="Hold metformin; consider insulin for glycemic control.",
+            recommendation="立即停用二甲双胍，改用胰岛素控制血糖，监测血乳酸与肾功能。",
         ))
     elif case.egfr < 45:
         findings.append(PrescriptionFinding(
@@ -97,10 +98,10 @@ def _rule_metformin_renal(case: PatientCase) -> list[PrescriptionFinding]:
             severity="high",
             drugs_involved=["metformin"],
             description=(
-                f"Metformin dosing should be reduced at eGFR 30-45 "
-                f"(current eGFR {case.egfr}); review benefit/risk."
+                f"eGFR 30-45 时二甲双胍需减量（当前 eGFR {case.egfr}），"
+                f"应权衡获益与风险。"
             ),
-            recommendation="Reduce dose by 50% and reassess eGFR every 3 months.",
+            recommendation="剂量减半，每 3 个月复查 eGFR，关注恶心/呕吐/肌痛等乳酸酸中毒前驱症状。",
         ))
     return findings
 
@@ -119,10 +120,10 @@ def _rule_anticoag_plus_antiplatelet(case: PatientCase) -> list[PrescriptionFind
             severity="high",
             drugs_involved=involved,
             description=(
-                f"Anticoagulant + antiplatelet combination ({', '.join(involved)}) "
-                f"significantly increases bleeding risk."
+                f"抗凝药 + 抗血小板药联用（{', '.join(cn_drug_name(d) for d in involved)}），"
+                f"显著增加大出血风险（HR≈2-3）。"
             ),
-            recommendation="Reassess indication; if both required, add PPI and monitor Hb/cross-match.",
+            recommendation="重新评估适应证；如必须联用，加用 PPI 保护胃黏膜，监测血红蛋白与大便隐血。",
         ))
 
     if has_anticoag and has_nsaid:
@@ -132,10 +133,10 @@ def _rule_anticoag_plus_antiplatelet(case: PatientCase) -> list[PrescriptionFind
             severity="high",
             drugs_involved=involved,
             description=(
-                f"Anticoagulant + NSAID combination ({', '.join(involved)}) "
-                f"markedly increases GI bleeding risk."
+                f"抗凝药 + 非甾体抗炎药（NSAID）联用（{', '.join(cn_drug_name(d) for d in involved)}），"
+                f"显著增加消化道出血风险（OR≈4-6）。"
             ),
-            recommendation="Avoid NSAID; use acetaminophen or add PPI if NSAID unavoidable.",
+            recommendation="避免使用 NSAID；可改用对乙酰氨基酚镇痛，若 NSAID 不可避免加用 PPI。",
         ))
     return findings
 
@@ -154,10 +155,10 @@ def _rule_supratherapeutic_inr(case: PatientCase) -> list[PrescriptionFinding]:
         severity=severity,
         drugs_involved=involved,
         description=(
-            f"Supratherapeutic INR ({case.inr}) with concurrent bleeding-risk drugs "
-            f"({', '.join(involved)})."
+            f"INR 超出治疗范围（当前 {case.inr}，房颤目标 2.0-3.0），"
+            f"合并出血风险药物（{', '.join(cn_drug_name(d) for d in involved)}），出血事件显著升高。"
         ),
-        recommendation="Hold warfarin; consider vitamin K; recheck INR in 24h.",
+        recommendation="暂停华法林；INR≥5 时考虑维生素 K 1-2.5mg 口服；24 小时内复查 INR。",
     )]
 
 
@@ -173,10 +174,10 @@ def _rule_glp1_mtc(case: PatientCase) -> list[PrescriptionFinding]:
             severity="critical",
             drugs_involved=[drug],
             description=(
-                f"{drug} carries a black box warning for thyroid C-cell tumors and is "
-                f"contraindicated in personal/family history of MTC or MEN 2."
+                f"{cn_drug_name(drug)} 带 FDA 黑框警告：可引起甲状腺 C 细胞肿瘤，"
+                f"个人或家族 MTC/MEN 2 病史者绝对禁用。"
             ),
-            recommendation="Discontinue; use alternative glycemic agent.",
+            recommendation="立即停药；更换为其他降糖药（如 SGLT2 抑制剂或 DPP-4 抑制剂）。",
         )]
     return []
 
@@ -196,8 +197,8 @@ def _rule_allergy_cross_reactivity(case: PatientCase) -> list[PrescriptionFindin
                 finding_type="allergy_risk",
                 severity="critical",
                 drugs_involved=[allergy_low],
-                description=f"Patient is documented allergic to {allergy_low}, which is on the current prescription.",
-                recommendation="Discontinue and document; select alternative class.",
+                description=f"患者既往对 {cn_drug_name(allergy_low)} 过敏，本次处方仍包含该药，存在严重过敏反应风险。",
+                recommendation="立即停药并归档；选择其他类别替代药物，准备肾上腺素备用。",
             ))
         # penicillin → cephalosporin cross-reactivity (representative)
         elif allergy_low == "penicillin" and drugs & {"cephalexin", "cefuroxime", "ceftriaxone", "cephalosporin"}:
@@ -206,8 +207,8 @@ def _rule_allergy_cross_reactivity(case: PatientCase) -> list[PrescriptionFindin
                 finding_type="allergy_risk",
                 severity="moderate",
                 drugs_involved=cross,
-                description=f"Possible cross-reactivity between penicillin allergy and cephalosporin(s): {', '.join(cross)}.",
-                recommendation="Assess reaction history; consider alternative or test dose.",
+                description=f"青霉素过敏与头孢菌素（{', '.join(cn_drug_name(d) for d in cross)}）存在交叉反应风险（约 1-10%）。",
+                recommendation="评估过敏反应史；轻症可考虑皮试或剂量试探，重症应改用其他类别。",
             ))
     return findings
 
@@ -226,10 +227,10 @@ def _rule_nephrotoxic_pairs(case: PatientCase) -> list[PrescriptionFinding]:
             severity=severity,
             drugs_involved=flagged,
             description=(
-                f"Triple-whammy-like renal insult: NSAID + ACE inhibitor/ARB "
-                f"with eGFR {case.egfr} (AKI risk)."
+                f"三重肾损伤风险：非甾体抗炎药（NSAID）+ ACEI/ARB 联用（{', '.join(cn_drug_name(d) for d in flagged)}）"
+                f"合并 eGFR {case.egfr}，急性肾损伤（AKI）风险显著升高。"
             ),
-            recommendation="Avoid NSAID; monitor creatinine and electrolytes within 1-2 weeks.",
+            recommendation="避免 NSAID；1-2 周内复查肌酐与电解质，关注尿量变化。",
         )]
     return []
 
@@ -247,10 +248,10 @@ def _rule_hepatotoxic(case: PatientCase) -> list[PrescriptionFinding]:
         severity=severity,
         drugs_involved=flagged,
         description=(
-            f"Hepatotoxic drug(s) ({', '.join(flagged)}) in a patient with "
-            f"{case.liver_function} hepatic impairment."
+            f"肝毒性药物（{', '.join(cn_drug_name(d) for d in flagged)}）用于"
+            f"{cn_hepatic(case.liver_function)}的患者，可能加重肝损伤。"
         ),
-        recommendation="Avoid or reduce dose; monitor LFTs periodically.",
+        recommendation="避免使用或减量；定期监测肝功能（ALT/AST/胆红素）。",
     )]
 
 
@@ -280,33 +281,47 @@ def run_deterministic_checks(case: PatientCase) -> list[PrescriptionFinding]:
 
 # ── LLM-driven check over retrieved evidence ───────────────────────
 
-LLM_CHECKER_SYSTEM_PROMPT = """You are a clinical pharmacist AI reviewing a prescription against
-retrieved evidence (drug labels, PubMed, clinical guidelines).
+LLM_CHECKER_SYSTEM_PROMPT = """你是一名临床药师 AI，正在根据检索到的证据（药品说明书、PubMed 文献、临床指南）审查处方。
 
-Your job: identify risk findings that are SUPPORTED by the provided source documents.
-Do NOT invent findings that are not grounded in the sources. If the sources do not
-mention a risk, do not output it.
+任务：识别出**被所给源文档明确支持**的风险发现。不要凭空捏造源文档未提及的风险。
 
-Return a JSON object with EXACTLY this shape:
+返回严格符合以下结构的 JSON 对象：
 {
   "findings": [
     {
       "finding_type": "drug_interaction" | "contraindication" | "dose_risk" | "renal_risk"
                     | "hepatic_risk" | "pregnancy_risk" | "allergy_risk" | "monitoring_required",
       "severity": "low" | "moderate" | "high" | "critical",
-      "drugs_involved": ["drug names"],
-      "description": "1-2 sentence description grounded in the sources",
-      "recommendation": "suggested clinical action",
-      "supporting_doc_snippets": ["short verbatim snippet(s) from the sources that support this finding"]
+      "drugs_involved": ["药物名"],
+      "description": "1-2 句中文描述，必须基于源文档内容",
+      "recommendation": "中文临床处置建议",
+      "supporting_doc_snippets": ["源文档中支持该发现的简短原文片段"]
     }
   ]
 }
 
-Rules:
-- Only produce findings supported by the source documents.
-- For each finding, include at least one supporting_doc_snippet (a few words quoted from the source).
-- If no risks are supported by the sources, return {"findings": []}.
-- Respond ONLY with the JSON object."""
+规则：
+- 仅生成被源文档支持的风险发现。
+- 每条发现至少包含一条 supporting_doc_snippet（来自源文档的少量原文引用）。
+- 若源文档未提及任何风险，返回 {"findings": []}。
+- **description 与 recommendation 必须使用中文（简体中文）书写。** 源文档可能是英文，但你必须将内容翻译成中文后填写，绝不能输出英文描述或英文建议。
+- drugs_involved 中的药物名使用英文通用名（如 "warfarin"），以便与系统其他部分匹配。
+- supporting_doc_snippet 保留源文档的原文片段（可以是英文），用于证据追溯。
+- 仅输出 JSON 对象本身，不要附加任何解释性文本。
+
+示例（注意 description 和 recommendation 均为中文）：
+{
+  "findings": [
+    {
+      "finding_type": "drug_interaction",
+      "severity": "high",
+      "drugs_involved": ["warfarin", "ibuprofen"],
+      "description": "华法林与布洛芬（NSAID）联用会显著增加消化道出血风险，患者 INR 已达 3.2，出血风险进一步升高。",
+      "recommendation": "避免联用 NSAID；可改用对乙酰氨基酚镇痛，若必须使用 NSAID 则加用质子泵抑制剂并密切监测 INR 和出血征象。",
+      "supporting_doc_snippets": ["concomitant use of NSAIDs increases the risk of bleeding"]
+    }
+  ]
+}"""
 
 
 def _strip_code_fence(text: str) -> str:
@@ -411,17 +426,17 @@ def run_llm_checks(
         logger.info("llm_checker_skipped_no_docs")
         return []
 
-    drug_summary = ", ".join(f"{d.name} {d.dose} {d.frequency}".strip() for d in case.drugs) or "none"
+    drug_summary = ", ".join(f"{d.name} {d.dose} {d.frequency}".strip() for d in case.drugs) or "无"
     case_brief = (
-        f"Patient: {case.age or '?'}y {case.sex}; "
-        f"Diagnoses: {', '.join(case.diagnoses) or 'none'}; "
-        f"Allergies: {', '.join(case.allergies) or 'none'}; "
-        f"eGFR: {case.egfr}; Liver: {case.liver_function}; INR: {case.inr}; "
-        f"Pregnancy: {case.pregnancy}; "
-        f"Prescription: {drug_summary}"
+        f"患者：{case.age or '?'}岁 {case.sex}；"
+        f"诊断：{', '.join(case.diagnoses) or '无'}；"
+        f"过敏史：{', '.join(case.allergies) or '无'}；"
+        f"eGFR：{case.egfr}；肝功能：{case.liver_function}；INR：{case.inr}；"
+        f"妊娠：{case.pregnancy}；"
+        f"处方：{drug_summary}"
     )
 
-    user_content = f"Case brief:\n{case_brief}\n\nSource documents:\n\n{context}"
+    user_content = f"患者信息：\n{case_brief}\n\n检索到的源文档：\n\n{context}"
     messages = [
         SystemMessage(content=LLM_CHECKER_SYSTEM_PROMPT),
         HumanMessage(content=user_content),

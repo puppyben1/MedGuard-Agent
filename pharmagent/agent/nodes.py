@@ -18,6 +18,7 @@ from pharmagent.core.safety_guardrails import (
     extract_drug_names_from_query,
     get_indexed_drugs,
     is_query_valid,
+    normalize_query_language,
 )
 from pharmagent.core.synthesizer import synthesize_safety_assessment
 from pharmagent.logging_config import get_logger
@@ -80,20 +81,33 @@ def analyze_and_route(state: AgentState) -> dict:
 
     # ── Drug coverage validation ──
     indexed_drugs = get_indexed_drugs()
+
+    # Normalize Chinese drug names / clinical terms to English so the
+    # retrieval pipeline (which indexes English FDA labels) can match.
+    normalized = normalize_query_language(query)
+    if normalized != query:
+        logger.info("query_normalized", original=query, normalized=normalized)
+
     detected, missing = extract_drug_names_from_query(query, indexed_drugs)
-    
-    # Supplement with LLM-extracted drugs to catch rare/made-up drugs bypassing regex
+
+    # Supplement with LLM-extracted drugs to catch rare/made-up drugs bypassing regex.
+    # Normalize Chinese drug names to English first so they can be matched
+    # against the English index.
     detected_lower = {d.lower() for d in detected}
     missing_lower = {m.lower() for m in missing}
     for d in drugs_mentioned:
-        dl = d.lower()
-        if dl not in detected_lower and dl not in missing_lower:
-            # We don't want to add broad terms like "drug", "medicine", or class names if they weren't caught
-            if len(d) > 3 and not any(w in dl for w in ["inhibitor", "blocker", "nsaid", "agonist"]):
-                if dl in indexed_drugs:
-                    detected.append(d)
-                else:
-                    missing.append(d)
+        d_norm = normalize_query_language(d).lower()
+        if d_norm in detected_lower or d_norm in missing_lower:
+            continue
+        # Skip broad class terms.
+        if len(d_norm) <= 3 or any(w in d_norm for w in ["inhibitor", "blocker", "nsaid", "agonist"]):
+            continue
+        if d_norm in indexed_drugs:
+            detected.append(d_norm)
+            detected_lower.add(d_norm)
+        else:
+            missing.append(d_norm)
+            missing_lower.add(d_norm)
 
     if missing:
         logger.warning(
@@ -118,7 +132,7 @@ def analyze_and_route(state: AgentState) -> dict:
     return {
         "query_type": query_type,
         "target_collections": target_collections,
-        "current_query": query,
+        "current_query": normalized,
         "rewrite_count": 0,
         "generation_count": 0,
         "detected_drugs": detected,

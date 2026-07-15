@@ -358,6 +358,32 @@ python pharmagent/evaluation/run_eval.py
 
 ---
 
+## 界面演示 / UI Showcase
+
+React + TypeScript + Tailwind CSS 前端，完全中文化界面。下方截图展示主要使用流程。
+
+### 主界面
+
+![主界面](docs/images/ui-home.png)
+
+### 处方审查 — 病例输入
+
+![处方审查输入](docs/images/ui-prescription-input.png)
+
+### 处方审查 — 风险报告
+
+![处方审查报告](docs/images/ui-prescription-report.png)
+
+### 药物安全问答
+
+![药物安全问答](docs/images/ui-qa.png)
+
+### 评估结果
+
+![评估结果](docs/images/ui-evaluation.png)
+
+---
+
 ## Project Structure
 
 ```

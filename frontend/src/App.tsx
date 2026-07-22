@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import type { ExamplesResponse, HealthResponse } from "./types";
+import type { ADRExamplesResponse, ExamplesResponse, HealthResponse } from "./types";
 import PrescriptionReview from "./components/PrescriptionReview";
 import DrugSafetyQA from "./components/DrugSafetyQA";
+import ADRAnalysis from "./components/ADRAnalysis";
 
-type Tab = "prescription" | "qa";
+type Tab = "prescription" | "qa" | "adr";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("prescription");
   const [examples, setExamples] = useState<ExamplesResponse | null>(null);
+  const [adrExamples, setAdrExamples] = useState<ADRExamplesResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
 
   useEffect(() => {
     api.examples().then(setExamples).catch(() => {});
+    api.adrExamples().then(setAdrExamples).catch(() => {});
     const refreshHealth = () => api.health().then(setHealth).catch(() => {});
     refreshHealth();
     const id = setInterval(refreshHealth, 15000);
@@ -59,6 +62,9 @@ export default function App() {
           <TabButton active={tab === "qa"} onClick={() => setTab("qa")}>
             💬 药物安全问答
           </TabButton>
+          <TabButton active={tab === "adr"} onClick={() => setTab("adr")}>
+            ADR 全流程分析
+          </TabButton>
         </div>
       </nav>
 
@@ -66,6 +72,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         {tab === "prescription" && examples && <PrescriptionReview examples={examples.prescription_examples} onReviewDone={() => api.health().then(setHealth)} />}
         {tab === "qa" && examples && <DrugSafetyQA examples={examples.qa_examples} onAskDone={() => api.health().then(setHealth)} />}
+        {tab === "adr" && adrExamples && <ADRAnalysis examples={adrExamples.adr_examples} />}
       </main>
 
       <footer className="max-w-6xl mx-auto px-4 py-6 text-center text-xs text-slate-400">

@@ -8,6 +8,8 @@ Exposes:
     POST /api/prescription     — prescription review (case text → report)
     POST /api/qa               — drug safety QA (question → assessment)
     GET  /api/examples         — example cases / queries
+    GET  /api/adr/examples     — ADR demo cases
+    POST /api/adr/analyze      — end-to-end ADR analysis
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from pharmagent.api.routes import examples, prescription, qa
+from pharmagent.api.routes import adr, examples, prescription, qa
 from pharmagent.logging_config import setup_logging
 
 setup_logging("INFO")
@@ -56,3 +58,4 @@ def health() -> dict:
 app.include_router(prescription.router, prefix="/api", tags=["prescription"])
 app.include_router(qa.router, prefix="/api", tags=["qa"])
 app.include_router(examples.router, prefix="/api", tags=["examples"])
+app.include_router(adr.router, prefix="/api", tags=["adr"])

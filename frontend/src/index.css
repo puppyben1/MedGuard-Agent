@@ -23,3 +23,11 @@ body {
 .preserve-whitespace {
   white-space: pre-wrap;
 }
+
+.adr-grid-bg {
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.24), transparent 62%);
+  background-size: 42px 42px, 42px 42px, 100% 100%;
+}

@@ -1,6 +1,8 @@
 // API client for the MedGuard-Agent backend.
 
 import type {
+  ADRAnalysisReport,
+  ADRExamplesResponse,
   ExamplesResponse,
   HealthResponse,
   PrescriptionReport,
@@ -39,6 +41,9 @@ async function getJson<T>(path: string): Promise<T> {
 export const api = {
   health: () => getJson<HealthResponse>("/api/health"),
   examples: () => getJson<ExamplesResponse>("/api/examples"),
+  adrExamples: () => getJson<ADRExamplesResponse>("/api/adr/examples"),
+  analyzeADR: (case_text: string, use_realtime_openfda = false) =>
+    postJson<ADRAnalysisReport>("/api/adr/analyze", { case_text, use_realtime_openfda }),
   reviewPrescription: (case_text: string, collections?: string[]) =>
     postJson<PrescriptionReport>("/api/prescription", { case_text, collections }),
   askQuestion: (query: string) => postJson<SafetyAssessment>("/api/qa", { query }),

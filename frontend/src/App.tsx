@@ -1,37 +1,59 @@
 /*
-THESIS: MedGuard-Agent opens as a clinical safety scanner, refusing the generic dark dashboard hero.
-OWN-WORLD: cool laboratory whites, graphite text, cyan instrument light, sparse risk color, and a translucent Halo scan ring.
-STORY: a judge sees the case-to-evidence mechanism, checks runtime readiness, then enters one operational workflow.
-FIRST VIEWPORT: compact top bar, left vertical module index, large Halo object center-left, proof copy and readiness stack at right.
-FORM: clinical instrument deck, chosen as the primary structure for a competition demo surface.
+THESIS: MedGuard-Agent presents as a drug-safety research platform, not a generic admin dashboard.
+OWN-WORLD: bright biomedical platform surfaces, blue-cyan molecular graph lines, dark slate workbench panels, and restrained clinical risk color.
+STORY: a judge immediately understands the ADR pipeline, sees the real-source boundary, then enters the usable analysis workbench.
+FIRST VIEWPORT: fixed platform nav, left hero offer and CTAs, right interactive-looking evidence graph console, with source readiness below.
+FORM: MolHuiTu-inspired research platform landing/workbench hybrid, adapted to MedGuard's clinical safety constraints.
 */
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import type { ADRExamplesResponse, ExamplesResponse, RuntimeConfigStatus } from "./types";
-import PrescriptionReview from "./components/PrescriptionReview";
-import DrugSafetyQA from "./components/DrugSafetyQA";
 import ADRAnalysis from "./components/ADRAnalysis";
-import ResearchMining from "./components/ResearchMining";
+import DrugSafetyQA from "./components/DrugSafetyQA";
 import PolypharmacyAnalysis from "./components/PolypharmacyAnalysis";
+import PrescriptionReview from "./components/PrescriptionReview";
+import ResearchMining from "./components/ResearchMining";
 import SystemConfig from "./components/SystemConfig";
 
-type Tab = "prescription" | "qa" | "adr" | "research" | "polypharmacy" | "config";
+type Tab = "adr" | "prescription" | "qa" | "research" | "polypharmacy" | "config";
 
 const NAV_ITEMS: { id: Tab; label: string; description: string; metric: string }[] = [
-  { id: "adr", label: "ADR 全流程分析", description: "九大 Agent 个案会诊", metric: "Signal" },
-  { id: "prescription", label: "处方审查", description: "规则 + RAG 证据核验", metric: "Review" },
-  { id: "qa", label: "药物安全问答", description: "证据约束多轮咨询", metric: "RAG" },
-  { id: "research", label: "科研批量挖掘", description: "SIDER/MedDRA 图谱", metric: "Graph" },
-  { id: "polypharmacy", label: "多药高阶风险", description: "规则 + 图谱机制分析", metric: "HODDI" },
-  { id: "config", label: "系统配置", description: "外部 API 与真实数据源", metric: "Runtime" },
+  { id: "adr", label: "ADR 全流程", description: "个案抽取、信号、因果、报告", metric: "ADR" },
+  { id: "research", label: "科研挖掘", description: "PubMed / BioDEX / GraphRAG", metric: "RAG" },
+  { id: "polypharmacy", label: "多药风险", description: "规则、图谱、外部 DDI 证据", metric: "DDI" },
+  { id: "prescription", label: "处方审查", description: "规则 + RAG 证据核验", metric: "Rx" },
+  { id: "qa", label: "安全问答", description: "报告上下文常驻问答", metric: "QA" },
+  { id: "config", label: "系统配置", description: "真实数据源与 API", metric: "Ops" },
 ];
 
-const PIPELINE = [
-  "病例语义解析",
-  "药物/事件抽取",
-  "FAERS 信号",
-  "因果评分",
-  "证据链报告",
+const ARCHITECTURE = [
+  {
+    title: "LLM Schema 抽取",
+    body: "从病例文本抽取疑似药物、ADR、时间轴、停药/再挑战和缺失信息；失败时明确进入 fallback。",
+    source: "runtime LLM / fallback",
+  },
+  {
+    title: "FAERS / openFDA 信号",
+    body: "优先使用离线官方季度缓存或实时 openFDA；二乘二表、ROR/PRR 和来源类型分开展示。",
+    source: "offline_faers / realtime_openfda",
+  },
+  {
+    title: "SIDER/MedDRA RAG",
+    body: "把本地 SIDER/MedDRA 构建为 JSONL、BM25、Chroma 与 Neo4j import 产物，作为可审计证据补充。",
+    source: "offline_real_dataset",
+  },
+  {
+    title: "Neo4j 3D 证据图谱",
+    body: "Drug、SideEffect、Evidence、Mechanism 节点按类型着色，支持 live graph 查询和一跳/两跳展开。",
+    source: "neo4j_live / graph_preview",
+  },
+];
+
+const SCENARIOS = [
+  ["临床 ADR 个案", "病例到证据链、因果评分、PDF 报告"],
+  ["科研批量挖掘", "摘要、CSV、JSONL、PubMed、BioDEX"],
+  ["多药高阶风险", "华法林 + NSAID + PPI 等组合机制"],
+  ["真实数据运维", "Neo4j、FAERS、RAG、DDI 源缺失诊断"],
 ];
 
 export default function App() {
@@ -45,113 +67,97 @@ export default function App() {
     api.adrExamples().then(setAdrExamples).catch(() => {});
     const refreshConfig = () => api.config().then(setConfig).catch(() => {});
     refreshConfig();
-    const id = setInterval(refreshConfig, 15000);
-    return () => clearInterval(id);
+    const id = window.setInterval(refreshConfig, 15000);
+    return () => window.clearInterval(id);
   }, []);
 
-  const activeItem = useMemo(
-    () => NAV_ITEMS.find((item) => item.id === tab) ?? NAV_ITEMS[0],
-    [tab],
-  );
+  const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === tab) ?? NAV_ITEMS[0], [tab]);
 
   return (
-    <div className="clinical-shell min-h-screen text-slate-950">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <TopBar config={config} />
-        <HeroDeck activeTab={tab} setTab={setTab} config={config} />
+    <div className="platform-shell min-h-screen">
+      <TopNav setTab={setTab} />
 
-        <section className="workbench-shell mt-5">
-          <div className="workbench-head">
+      <main className="mx-auto w-full max-w-[1480px] px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+        <HeroPlatform config={config} setTab={setTab} />
+        <ArchitectureBand />
+        <ScenarioBand />
+
+        <section id="workbench" className="workbench-platform">
+          <div className="workbench-platform__head">
             <div>
-              <p className="section-kicker">Active Workbench</p>
+              <p className="platform-kicker">Active Workbench</p>
               <h2>{activeItem.label}</h2>
               <p>{activeItem.description}</p>
             </div>
-            <div className="workbench-mode">{activeItem.metric}</div>
+            <span>{activeItem.metric}</span>
           </div>
 
-          <nav className="module-tabs" aria-label="MedGuard 功能模块">
+          <nav className="platform-tabs" aria-label="MedGuard 功能模块">
             {NAV_ITEMS.map((item) => (
-              <ModuleTab
+              <button
                 key={item.id}
-                active={tab === item.id}
+                type="button"
+                className={tab === item.id ? "is-active" : ""}
                 onClick={() => setTab(item.id)}
-                label={item.label}
-                description={item.description}
-              />
+              >
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </button>
             ))}
           </nav>
 
-          <main className="workbench-body">
+          <div className="workbench-platform__body">
+            {tab === "adr" && (
+              adrExamples ? <ADRAnalysis examples={adrExamples.adr_examples} /> : <LoadingWorkbench label="正在载入 ADR 个案分析示例" />
+            )}
+            {tab === "research" && <ResearchMining />}
+            {tab === "polypharmacy" && <PolypharmacyAnalysis />}
             {tab === "prescription" && (
               examples ? (
-                <PrescriptionReview
-                  examples={examples.prescription_examples}
-                  onReviewDone={() => api.config().then(setConfig)}
-                />
+                <PrescriptionReview examples={examples.prescription_examples} onReviewDone={() => api.config().then(setConfig)} />
               ) : (
                 <LoadingWorkbench label="正在载入处方审查示例" />
               )
             )}
             {tab === "qa" && (
               examples ? (
-                <DrugSafetyQA
-                  examples={examples.qa_examples}
-                  onAskDone={() => api.config().then(setConfig)}
-                />
+                <DrugSafetyQA examples={examples.qa_examples} onAskDone={() => api.config().then(setConfig)} />
               ) : (
                 <LoadingWorkbench label="正在载入药物安全问答示例" />
               )
             )}
-            {tab === "adr" && (
-              adrExamples ? (
-                <ADRAnalysis examples={adrExamples.adr_examples} />
-              ) : (
-                <LoadingWorkbench label="正在载入 ADR 个案分析示例" />
-              )
-            )}
-            {tab === "research" && <ResearchMining />}
-            {tab === "polypharmacy" && <PolypharmacyAnalysis />}
             {tab === "config" && <SystemConfig />}
-          </main>
+          </div>
         </section>
 
-        <footer className="px-2 py-5 text-center text-xs text-slate-500">
-          MedGuard-Agent 仅供临床决策辅助，不能替代医生或临床药师判断；FAERS/openFDA 信号代表报告关联，不等于因果证明。
+        <footer className="platform-footer">
+          MedGuard-Agent 仅供临床决策辅助和科研展示；FAERS/openFDA/SIDER/MedDRA/Neo4j 结果均按来源类型标注，不等同于个体因果证明。
         </footer>
-      </div>
+      </main>
     </div>
   );
 }
 
-function TopBar({ config }: { config: RuntimeConfigStatus | null }) {
+function TopNav({ setTab }: { setTab: (tab: Tab) => void }) {
   return (
-    <header className="topbar">
-      <div className="brand-mark" aria-hidden="true">
-        MG
-      </div>
-      <div className="min-w-0">
-        <h1>MedGuard-Agent</h1>
-        <p>多智能体药物安全风险分析与证据约束报告系统</p>
-      </div>
-      <div className="topbar-status">
-        <StatusPill label="LLM" ok={Boolean(config?.has_llm_api_key)} />
-        <StatusPill label="openFDA" ok={Boolean(config?.has_openfda_api_key || config?.strict_real_data)} />
-        <StatusPill label="SIDER" ok={Boolean(config?.side_effect_zip_available)} />
+    <header className="platform-nav">
+      <div className="platform-nav__inner">
+        <button type="button" className="platform-brand" onClick={() => setTab("adr")}>
+          <span>MG</span>
+          <strong>MedGuard-Agent</strong>
+        </button>
+        <nav aria-label="平台导航">
+          <a href="#architecture">核心技术架构</a>
+          <a href="#scenarios">应用场景</a>
+          <a href="#workbench">进入工作台</a>
+          <button type="button" onClick={() => setTab("config")}>系统配置</button>
+        </nav>
       </div>
     </header>
   );
 }
 
-function HeroDeck({
-  activeTab,
-  setTab,
-  config,
-}: {
-  activeTab: Tab;
-  setTab: (tab: Tab) => void;
-  config: RuntimeConfigStatus | null;
-}) {
+function HeroPlatform({ config, setTab }: { config: RuntimeConfigStatus | null; setTab: (tab: Tab) => void }) {
   const readyCount = [
     config?.has_llm_api_key,
     config?.has_openfda_api_key || config?.strict_real_data,
@@ -159,111 +165,111 @@ function HeroDeck({
   ].filter(Boolean).length;
 
   return (
-    <section className="hero-deck">
-      <div className="hero-index" aria-label="功能序列">
-        <span className="hero-index-number">01</span>
-        {NAV_ITEMS.slice(0, 4).map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={activeTab === item.id ? "is-active" : ""}
-          >
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            {item.metric}
-          </button>
-        ))}
-      </div>
-
-      <div className="halo-stage" aria-hidden="true">
-        <div className="halo-orbit halo-orbit-back" />
-        <div className="halo-orbit halo-orbit-front" />
-        <div className="halo-core" />
-        <div className="halo-sweep" />
-        <span className="halo-node halo-node-a" />
-        <span className="halo-node halo-node-b" />
-        <span className="halo-node halo-node-c" />
-      </div>
-
-      <div className="hero-copy">
-        <p className="section-kicker">Clinical Halo Intelligence</p>
-        <h2>把自由文本病例扫描成可审计的 ADR 证据链。</h2>
-        <p className="hero-lede">
-          系统先抽取药物、事件和时间线，再联动 FAERS/openFDA 信号、Naranjo/WHO-UMC 因果评分与 RAG 证据核验，最终生成带不确定性说明的药物安全报告。
+    <section className="platform-hero">
+      <div className="platform-hero__copy">
+        <p className="platform-kicker">AI Pharmacovigilance Platform</p>
+        <h1>药物安全 ADR 多 Agent 分析平台</h1>
+        <p>
+          面向比赛展示和药学科研原型：把自由文本病例、文献摘要、FAERS/openFDA 信号、SIDER/MedDRA RAG 与 Neo4j 图谱组织成可追溯的药物安全证据链。
         </p>
-
-        <div className="hero-actions">
-          <button type="button" className="primary-action" onClick={() => setTab("adr")}>
-            启动 ADR 分析
-          </button>
-          <button type="button" className="secondary-action" onClick={() => setTab("prescription")}>
-            查看处方审查
-          </button>
+        <div className="platform-actions">
+          <button type="button" className="primary-action" onClick={() => setTab("adr")}>立即分析 ADR</button>
+          <button type="button" className="secondary-action" onClick={() => setTab("research")}>查看科研挖掘</button>
         </div>
-
-        <div className="readiness-panel">
-          <div>
-            <span>Runtime readiness</span>
-            <strong>{readyCount}/3</strong>
-          </div>
-          <div className="readiness-grid">
-            <ReadinessDot label="LLM" ok={Boolean(config?.has_llm_api_key)} />
-            <ReadinessDot label="openFDA" ok={Boolean(config?.has_openfda_api_key || config?.strict_real_data)} />
-            <ReadinessDot label="SIDER/MedDRA" ok={Boolean(config?.side_effect_zip_available)} />
-          </div>
+        <div className="source-readiness" aria-label="真实数据源状态">
+          <Readiness label="LLM" ok={Boolean(config?.has_llm_api_key)} />
+          <Readiness label="openFDA" ok={Boolean(config?.has_openfda_api_key || config?.strict_real_data)} />
+          <Readiness label="SIDER/MedDRA" ok={Boolean(config?.side_effect_zip_available)} />
+          <strong>{readyCount}/3 ready</strong>
         </div>
       </div>
 
-      <div className="pipeline-strip" aria-label="分析流程">
-        {PIPELINE.map((step, index) => (
-          <div key={step}>
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <strong>{step}</strong>
-          </div>
+      <div className="evidence-console" aria-label="MedGuard evidence graph visual">
+        <div className="console-header">
+          <span />
+          <span />
+          <span />
+          <strong>Evidence Chain Runtime</strong>
+        </div>
+        <div className="molecular-stage">
+          <div className="graph-node graph-node--drug">Drug</div>
+          <div className="graph-node graph-node--adr">ADR</div>
+          <div className="graph-node graph-node--faers">FAERS</div>
+          <div className="graph-node graph-node--rag">RAG</div>
+          <div className="graph-node graph-node--neo4j">Neo4j</div>
+          <svg viewBox="0 0 520 360" role="img" aria-label="Drug ADR evidence graph">
+            <path d="M112 178 C182 80 288 86 408 124" />
+            <path d="M112 178 C190 246 282 274 410 220" />
+            <path d="M220 82 C254 150 292 204 410 220" />
+            <path d="M220 82 C262 70 328 74 408 124" />
+            <path d="M112 178 C190 172 266 174 338 278" />
+          </svg>
+        </div>
+        <div className="console-metrics">
+          <Metric label="证据引用" value="citations" />
+          <Metric label="因果评分" value="Naranjo" />
+          <Metric label="图谱查询" value="Cypher" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ArchitectureBand() {
+  return (
+    <section id="architecture" className="platform-band">
+      <div className="band-heading">
+        <p className="platform-kicker">Core Architecture</p>
+        <h2>从病例到证据图谱的真实化链路</h2>
+        <p>每个模块都保留来源标签：demo、fallback、offline real dataset、realtime API、neo4j live 分开显示。</p>
+      </div>
+      <div className="architecture-grid">
+        {ARCHITECTURE.map((item) => (
+          <article key={item.title} className="architecture-card">
+            <span>{item.source}</span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </article>
         ))}
       </div>
     </section>
   );
 }
 
-function ModuleTab({
-  active,
-  onClick,
-  label,
-  description,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  description: string;
-}) {
+function ScenarioBand() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={active ? "module-tab is-active" : "module-tab"}
-    >
-      <span>{label}</span>
-      <small>{description}</small>
-    </button>
+    <section id="scenarios" className="scenario-band">
+      <div className="band-heading">
+        <p className="platform-kicker">Applications</p>
+        <h2>比赛演示的四条主线</h2>
+      </div>
+      <div className="scenario-grid">
+        {SCENARIOS.map(([title, body]) => (
+          <article key={title}>
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
-function StatusPill({ label, ok }: { label: string; ok: boolean }) {
+function Readiness({ label, ok }: { label: string; ok: boolean }) {
   return (
-    <div className={ok ? "status-pill is-ready" : "status-pill"}>
-      <span>{label}</span>
-      <strong>{ok ? "就绪" : "待配置"}</strong>
-    </div>
-  );
-}
-
-function ReadinessDot({ label, ok }: { label: string; ok: boolean }) {
-  return (
-    <span className={ok ? "readiness-dot is-ready" : "readiness-dot"}>
+    <span className={ok ? "readiness-chip is-ready" : "readiness-chip"}>
       <i aria-hidden="true" />
       {label}
     </span>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 

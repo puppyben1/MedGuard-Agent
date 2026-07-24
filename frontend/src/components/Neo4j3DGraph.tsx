@@ -37,10 +37,13 @@ export default function Neo4j3DGraph({
 }: Props) {
   const fgRef = useRef<ForceGraphMethods<Graph3DNode, Graph3DLink>>();
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const height = compact ? 288 : 430;
+  const renderLimit = compact ? 90 : 160;
 
   const graphData = useMemo(() => {
-    const nodes: Graph3DNode[] = graph.nodes.map((node) => ({
+    const sampled = sampleGraph(graph, renderLimit);
+    const nodes: Graph3DNode[] = sampled.nodes.map((node) => ({
       id: node.id,
       label: nodeLabel(node),
       labels: node.labels,
@@ -48,7 +51,7 @@ export default function Neo4j3DGraph({
       color: nodeColor(node),
       val: node.labels.includes("Drug") ? 8 : node.labels.includes("SideEffect") ? 6 : 4,
     }));
-    const links: Graph3DLink[] = graph.relationships.map((rel) => ({
+    const links: Graph3DLink[] = sampled.relationships.map((rel) => ({
       source: rel.source,
       target: rel.target,
       type: rel.type,
@@ -57,7 +60,15 @@ export default function Neo4j3DGraph({
       width: rel.type === "HAS_SIDE_EFFECT" ? 1.8 : 1.2,
     }));
     return { nodes, links };
-  }, [graph]);
+  }, [graph, renderLimit]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce), (pointer: coarse)");
+    const update = () => setReducedMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const graphRef = fgRef.current;
@@ -92,16 +103,16 @@ export default function Neo4j3DGraph({
         nodeLabel={(node) => `${node.label}\n${node.labels.join(" / ")}`}
         nodeColor={(node) => (node.id === selectedNodeId || node.id === hoveredNodeId ? "#fef3c7" : node.color)}
         nodeVal={(node) => (node.id === selectedNodeId ? node.val + 4 : node.val)}
-        nodeResolution={24}
+        nodeResolution={reducedMotion ? 12 : 20}
         linkLabel={(link) => link.type}
         linkColor={(link) => link.color}
         linkWidth={(link) => link.width}
         linkOpacity={0.72}
-        linkDirectionalParticles={(link) => (link.type === "HAS_SIDE_EFFECT" ? 2 : 1)}
+        linkDirectionalParticles={(link) => (reducedMotion ? 0 : link.type === "HAS_SIDE_EFFECT" ? 2 : 1)}
         linkDirectionalParticleWidth={1.6}
         linkDirectionalParticleSpeed={0.006}
-        cooldownTicks={80}
-        warmupTicks={20}
+        cooldownTicks={reducedMotion ? 35 : 70}
+        warmupTicks={reducedMotion ? 8 : 16}
         enableNodeDrag
         enableNavigationControls
         onNodeHover={(node) => setHoveredNodeId(node?.id ? String(node.id) : null)}
@@ -128,6 +139,34 @@ export default function Neo4j3DGraph({
       </div>
     </div>
   );
+}
+
+function sampleGraph(graph: Neo4jGraphPreview, limit: number): Neo4jGraphPreview {
+  if (graph.nodes.length <= limit) return graph;
+  const priority = new Map<string, number>();
+  graph.nodes.forEach((node) => {
+    const score =
+      (node.labels.includes("Drug") ? 100 : 0) +
+      (node.labels.includes("SideEffect") || node.labels.includes("MedDRATerm") ? 80 : 0) +
+      (node.labels.includes("Mechanism") ? 70 : 0) +
+      (node.labels.includes("Evidence") ? 40 : 0);
+    priority.set(node.id, score);
+  });
+  graph.relationships.forEach((rel) => {
+    priority.set(rel.source, (priority.get(rel.source) ?? 0) + 1);
+    priority.set(rel.target, (priority.get(rel.target) ?? 0) + 1);
+  });
+  const selected = new Set(
+    [...graph.nodes]
+      .sort((left, right) => (priority.get(right.id) ?? 0) - (priority.get(left.id) ?? 0))
+      .slice(0, limit)
+      .map((node) => node.id),
+  );
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((node) => selected.has(node.id)),
+    relationships: graph.relationships.filter((rel) => selected.has(rel.source) && selected.has(rel.target)),
+  };
 }
 
 function endpointId(endpoint: unknown) {

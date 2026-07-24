@@ -93,10 +93,13 @@ export const api = {
     postJson<ResearchBatchJob>("/api/research/batch-extract", body),
   researchJob: (jobId: string) => getJson<ResearchBatchJob>(`/api/research/jobs/${jobId}`),
   researchJobExportUrl: (jobId: string) => `${API_BASE}/api/research/jobs/${jobId}/export`,
+  downloadResearchReportPdf: (report: ResearchMiningReport) => postBlob("/api/research/report/pdf", report),
   analyzePolypharmacy: (body: {
     drugs: string[];
     patient?: { age?: number | null; diagnoses?: string[]; eGFR?: number | null; labs?: Record<string, unknown> };
+    external_evidence_path?: string;
   }) => postJson<PolypharmacyReport>("/api/polypharmacy/analyze", body),
+  downloadPolypharmacyReportPdf: (report: PolypharmacyReport) => postBlob("/api/polypharmacy/report/pdf", report),
   analyzeADR: (case_text: string, use_realtime_openfda = false) =>
     postJson<ADRAnalysisReport>("/api/adr/analyze", { case_text, use_realtime_openfda }),
   downloadADRReportPdf: (report: ADRAnalysisReport) => postBlob("/api/adr/report/pdf", report),

@@ -26,6 +26,11 @@ This PR continues the "real data chain first, presentation second" roadmap. It a
   - `GET /api/polypharmacy/evidence/status`
   - `PolypharmacyAnalyzeRequest.external_evidence_path`
   - Supports user-provided DDI/DrugBank-style CSV/JSONL evidence files.
+- Maintained P7 and demo readiness:
+  - PDF exports now include static graph snapshots generated from current report graph data.
+  - Research and polypharmacy pages expose frontend PDF download actions with loading/error states.
+  - 3D graph rendering samples large graphs and respects reduced-motion / coarse-pointer contexts.
+  - Added Neo4j import, FAERS data preparation, and competition demo runbooks.
 
 ## PR Scope Already Implemented
 
@@ -36,15 +41,15 @@ This PR continues the "real data chain first, presentation second" roadmap. It a
 - P4: Offline FAERS cache and disproportionality signal calculation.
 - P5: Research batch extraction with in-memory jobs, CSV export, PubMed query ingestion, and BioDEX-style annotation import.
 - P6: Polypharmacy risk analysis with rule + evidence graph output and external DDI/DrugBank-style evidence fusion.
-- P7: ADR, research, and polypharmacy PDF export endpoints.
+- P7: ADR, research, and polypharmacy PDF export endpoints with report graph snapshots.
 
 ## Remaining Work After This PR
 
 - P5 enhancement: LLM schema batch extraction, persistent SQLite/Redis/Celery job queue, and richer PubMed/BioDEX field normalization.
 - P6 enhancement: curated DrugBank/DDI dataset packaging, dose/lab rules, and offline FAERS combination evidence fusion.
-- P7 enhancement: embed graph screenshots into PDFs, report theme templates, and frontend download buttons for research/polypharmacy reports.
-- Demo polish: mobile QA, large 3D graph performance tuning, README/demo script cleanup.
-- Data operations: Neo4j import runbook, FAERS official quarterly data preparation notes, and clearer diagnostics when real data packages are missing.
+- P7 enhancement: richer report theme templates and optional frontend-captured WebGL screenshots.
+- Demo polish: additional real-device mobile QA and final presentation screenshots.
+- Data operations: package-specific data validation for user-provided Neo4j, FAERS, PubMed, BioDEX, and DDI files.
 
 ## PR Checklist
 

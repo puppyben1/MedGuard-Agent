@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import html
+import math
 from io import BytesIO
 
+from reportlab.graphics.shapes import Circle, Drawing, Line, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -22,7 +24,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from pharmagent.adr.schemas import ADRAnalysisReport, PolypharmacyReport, ResearchMiningReport
+from pharmagent.adr.schemas import ADRAnalysisReport, Neo4jGraphPreview, PolypharmacyReport, ResearchMiningReport
 
 FONT_NAME = "STSong-Light"
 
@@ -163,6 +165,10 @@ def render_adr_report_pdf(report: ADRAnalysisReport) -> bytes:
     ))
 
     story.append(_section("图谱节点和关键关系", styles))
+    snapshot = _graph_snapshot(_adr_graph_preview(report), "ADR knowledge graph snapshot")
+    if snapshot is not None:
+        story.append(snapshot)
+        story.append(Spacer(1, 6))
     story.append(_table(
         [["节点", "类型", "风险", "说明"], *[[n.label, n.type, n.risk or "", n.detail] for n in report.graph.nodes[:18]]],
         styles,
@@ -214,6 +220,10 @@ def render_research_report_pdf(report: ResearchMiningReport) -> bytes:
         ("Graph nodes", str(len(report.graph_preview.nodes))),
         ("Graph relationships", str(len(report.graph_preview.relationships))),
     ], styles))
+    snapshot = _graph_snapshot(report.graph_preview, "Research GraphRAG snapshot")
+    if snapshot is not None:
+        story.append(_section("图谱快照", styles))
+        story.append(snapshot)
     story.append(_section("Agent 流程", styles))
     story.append(_table(
         [["Agent", "Role", "Source", "Summary"], *[[s.name, s.role, s.data_source, s.summary] for s in report.agent_steps]],
@@ -267,6 +277,10 @@ def render_polypharmacy_report_pdf(report: PolypharmacyReport) -> bytes:
         ("eGFR", str(report.patient.eGFR or "未提供")),
         ("图谱节点", str(len(report.mechanism_graph.nodes))),
     ], styles))
+    snapshot = _graph_snapshot(report.mechanism_graph, "Polypharmacy mechanism graph")
+    if snapshot is not None:
+        story.append(_section("机制图谱快照", styles))
+        story.append(snapshot)
     story.append(_section("单药风险", styles))
     story.append(_table(
         [["Drug", "Risk", "Severity", "Evidence", "Rationale"], *[
@@ -303,6 +317,99 @@ def render_polypharmacy_report_pdf(report: PolypharmacyReport) -> bytes:
         story.append(ListFlowable([ListItem(Paragraph(safe(item), styles["Body"])) for item in report.limitations], bulletType="bullet"))
     doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
     return buffer.getvalue()
+
+
+def _adr_graph_preview(report: ADRAnalysisReport) -> Neo4jGraphPreview:
+    node_type_to_label = {
+        "drug": "Drug",
+        "adr": "SideEffect",
+        "evidence": "Evidence",
+        "lab": "Lab",
+        "patient_factor": "PatientFactor",
+        "signal": "Evidence",
+        "recommendation": "Recommendation",
+        "agent": "Agent",
+    }
+    return Neo4jGraphPreview(
+        nodes=[
+            {
+                "id": node.id,
+                "labels": [node_type_to_label.get(node.type, node.type)],
+                "properties": {"name": node.label, "risk": node.risk, "detail": node.detail},
+            }
+            for node in report.graph.nodes
+        ],
+        relationships=[
+            {
+                "source": link.source,
+                "target": link.target,
+                "type": link.label or link.type,
+                "properties": {"risk": link.risk, "evidence": link.evidence},
+            }
+            for link in report.graph.links
+        ],
+    )
+
+
+def _graph_snapshot(graph: Neo4jGraphPreview, title: str) -> Drawing | None:
+    if not graph.nodes:
+        return None
+    width = 162 * mm
+    height = 78 * mm
+    drawing = Drawing(width, height)
+    drawing.add(Line(0, height - 1, width, height - 1, strokeColor=colors.HexColor("#cbd5e1"), strokeWidth=0.6))
+    drawing.add(String(4 * mm, height - 7 * mm, title, fontName=FONT_NAME, fontSize=8.5, fillColor=colors.HexColor("#0f172a")))
+
+    nodes = graph.nodes[:14]
+    node_ids = {node.id for node in nodes}
+    relationships = [rel for rel in graph.relationships if rel.source in node_ids and rel.target in node_ids][:24]
+    center_x = width / 2
+    center_y = height / 2 - 5 * mm
+    radius_x = width * 0.38
+    radius_y = height * 0.28
+    positions: dict[str, tuple[float, float]] = {}
+    for index, node in enumerate(nodes):
+        angle = (math.tau * index / max(len(nodes), 1)) - math.pi / 2
+        positions[node.id] = (center_x + math.cos(angle) * radius_x, center_y + math.sin(angle) * radius_y)
+
+    for rel in relationships:
+        start = positions.get(rel.source)
+        end = positions.get(rel.target)
+        if start is None or end is None:
+            continue
+        drawing.add(Line(start[0], start[1], end[0], end[1], strokeColor=colors.HexColor("#94a3b8"), strokeWidth=0.45))
+
+    for node in nodes:
+        x, y = positions[node.id]
+        color = _node_snapshot_color(node.labels)
+        drawing.add(Circle(x, y, 4.2 * mm, fillColor=color, strokeColor=colors.white, strokeWidth=0.7))
+        label = str(node.properties.get("name") or node.properties.get("term") or node.id)
+        drawing.add(String(x + 5 * mm, y - 1.8 * mm, label[:22], fontName=FONT_NAME, fontSize=6.8, fillColor=colors.HexColor("#334155")))
+
+    if len(graph.nodes) > len(nodes) or len(graph.relationships) > len(relationships):
+        drawing.add(String(
+            4 * mm,
+            4 * mm,
+            f"Sampled {len(nodes)}/{len(graph.nodes)} nodes and {len(relationships)}/{len(graph.relationships)} relationships for PDF readability.",
+            fontName=FONT_NAME,
+            fontSize=6.6,
+            fillColor=colors.HexColor("#64748b"),
+        ))
+    return drawing
+
+
+def _node_snapshot_color(labels: list[str]):
+    if "Drug" in labels:
+        return colors.HexColor("#60a5fa")
+    if "SideEffect" in labels or "MedDRATerm" in labels:
+        return colors.HexColor("#f87171")
+    if "Evidence" in labels:
+        return colors.HexColor("#22d3ee")
+    if "Lab" in labels:
+        return colors.HexColor("#34d399")
+    if "Mechanism" in labels:
+        return colors.HexColor("#a78bfa")
+    return colors.HexColor("#94a3b8")
 
 
 def _register_fonts() -> None:

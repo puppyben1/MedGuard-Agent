@@ -21,6 +21,8 @@ export default function ResearchMining() {
   const [neo4jStatus, setNeo4jStatus] = useState<Neo4jStatus | null>(null);
   const [report, setReport] = useState<ResearchMiningReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   useEffect(() => {
     api.sideEffectDataset().then(setDataset).catch(() => {});
@@ -37,6 +39,20 @@ export default function ResearchMining() {
     }
   };
 
+  const downloadPdf = async () => {
+    if (!report) return;
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      const blob = await api.downloadResearchReportPdf(report);
+      downloadBlob(blob, "medguard-research-report.pdf");
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <section className="bg-slate-950 text-slate-100 border border-slate-800 rounded-lg shadow-sm p-5">
@@ -48,14 +64,28 @@ export default function ResearchMining() {
               面向 PubMed 摘要、批量病历和药物组合，执行批量 ADE 抽取、统计分析、高阶联用风险和 Neo4j GraphRAG 图谱检索。
             </p>
           </div>
-          <button
-            onClick={runDemo}
-            disabled={loading}
-            className="px-4 py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-600 text-cyan-950 text-sm font-semibold transition-colors"
-          >
-            {loading ? "运行中..." : "运行科研 Demo"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={runDemo}
+              disabled={loading}
+              className="min-h-11 rounded-md bg-cyan-500 px-4 py-2 text-sm font-semibold text-cyan-950 transition-colors hover:bg-cyan-400 disabled:bg-slate-600"
+            >
+              {loading ? "运行中..." : "运行科研 Demo"}
+            </button>
+            <button
+              onClick={downloadPdf}
+              disabled={!report || pdfLoading}
+              className="min-h-11 rounded-md border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-100 transition-colors hover:border-cyan-400 disabled:opacity-50"
+            >
+              {pdfLoading ? "生成 PDF..." : "下载 PDF 报告"}
+            </button>
+          </div>
         </div>
+        {pdfError && (
+          <p className="mt-3 rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            PDF 导出失败：{pdfError}
+          </p>
+        )}
       </section>
 
       <div className="grid xl:grid-cols-[1fr_320px] gap-5 items-start">
@@ -963,4 +993,15 @@ function Metric({ label, value }: { label: string; value: string }) {
       <div className="text-sm font-semibold text-slate-800 mt-0.5">{value}</div>
     </div>
   );
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }

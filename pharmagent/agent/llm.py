@@ -16,23 +16,30 @@ from langchain_groq import ChatGroq
 
 from pharmagent.config import settings
 from pharmagent.logging_config import get_logger
+from pharmagent.runtime_config import load_runtime_config
 
 logger = get_logger(__name__)
 
 
 def _use_deepseek() -> bool:
     """True when Groq key is absent but DeepSeek key is configured."""
+    runtime = load_runtime_config()
+    if runtime.llm.api_key:
+        return runtime.llm.provider == "openai_compatible"
     return not settings.groq_api_key and bool(settings.deepseek_api_key)
 
 
 def _deepseek_chat(model: str, temperature: float) -> Any:
     """Build a ChatOpenAI client pointed at the DeepSeek-compatible endpoint."""
     from langchain_openai import ChatOpenAI
+    runtime = load_runtime_config()
+    api_key = runtime.llm.api_key or settings.deepseek_api_key
+    base_url = runtime.llm.base_url or settings.deepseek_api_base
 
     return ChatOpenAI(
         model=model,
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_api_base,
+        api_key=api_key,
+        base_url=base_url,
         temperature=temperature,
     )
 
@@ -98,10 +105,14 @@ def get_router_llm() -> Any:
     to DeepSeek (deepseek-chat) via the OpenAI-compatible interface.
     """
     if _use_deepseek():
-        return _deepseek_chat(settings.deepseek_router_model, 0)
+        runtime = load_runtime_config()
+        return _deepseek_chat(runtime.llm.router_model or settings.deepseek_router_model, 0)
+    runtime = load_runtime_config()
+    groq_key = runtime.llm.api_key if runtime.llm.provider == "groq" and runtime.llm.api_key else settings.groq_api_key
+    router_model = runtime.llm.router_model if runtime.llm.provider == "groq" and runtime.llm.router_model else settings.router_model
     return ChatGroq(
-        model=settings.router_model,
-        api_key=settings.groq_api_key,
+        model=router_model,
+        api_key=groq_key,
         temperature=0,
     )
 
@@ -113,12 +124,16 @@ def get_generator_llm() -> Any:
     to DeepSeek (deepseek-chat) via the OpenAI-compatible interface.
     """
     if _use_deepseek():
-        return _deepseek_chat(settings.deepseek_generator_model, 0.1)
+        runtime = load_runtime_config()
+        return _deepseek_chat(runtime.llm.generator_model or settings.deepseek_generator_model, 0.1)
     if budget_tracker.generator_budget_remaining == 0:
         logger.warning("generator_budget_exhausted_falling_back_to_router_model")
         return get_router_llm()
+    runtime = load_runtime_config()
+    groq_key = runtime.llm.api_key if runtime.llm.provider == "groq" and runtime.llm.api_key else settings.groq_api_key
+    generator_model = runtime.llm.generator_model if runtime.llm.provider == "groq" and runtime.llm.generator_model else settings.generator_model
     return ChatGroq(
-        model=settings.generator_model,
-        api_key=settings.groq_api_key,
+        model=generator_model,
+        api_key=groq_key,
         temperature=0.1,
     )

@@ -25,6 +25,12 @@ env/
 data/chromadb/
 data/bm25/
 data/raw/
+data/incoming/
+data/runtime/
+data/processed/
+data/side_effect_rag/
+data/faers/
+output/
 
 # OS
 .DS_Store

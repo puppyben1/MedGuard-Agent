@@ -1,7 +1,12 @@
-"""ADR extraction for demo-first end-to-end analysis."""
+"""ADR extraction with LLM schema first and demo/rule fallback."""
 
 from __future__ import annotations
 
+import json
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from pharmagent.agent.llm import get_router_llm
 from pharmagent.adr.demo_data import find_demo_by_text
 from pharmagent.adr.schemas import (
     ADRExtractionResult,
@@ -10,10 +15,23 @@ from pharmagent.adr.schemas import (
     SuspectedDrug,
     TimelineEvent,
 )
+from pharmagent.runtime_config import load_runtime_config
 
 
 def extract_adr_case(case_text: str) -> ADRExtractionResult:
-    """Extract a structured ADR case using demo matching plus simple rules."""
+    """Extract a structured ADR case.
+
+    If a runtime LLM API key is configured, use real LLM schema extraction.
+    Demo matching remains only as an explicit fallback for offline presentation.
+    """
+    runtime = load_runtime_config()
+    if runtime.llm.api_key:
+        try:
+            return _extract_with_llm(case_text)
+        except Exception:
+            if runtime.rag.require_real_sources:
+                raise
+
     demo = find_demo_by_text(case_text)
     if demo is None:
         return ADRExtractionResult(
@@ -56,6 +74,35 @@ def extract_adr_case(case_text: str) -> ADRExtractionResult:
         missing_information=["未描述再给药反应", "未提供完整既往 ADR 史"],
         extraction_confidence=0.88,
     )
+
+
+def _extract_with_llm(case_text: str) -> ADRExtractionResult:
+    llm = get_router_llm()
+    messages = [
+        SystemMessage(
+            content=(
+                "You extract adverse drug reaction cases from clinical Chinese or English text. "
+                "Return ONLY valid JSON matching this schema: "
+                "{suspected_drugs:[{name,role,evidence_text}], adverse_events:[{name,original_text,severity,evidence_text}], "
+                "timeline:[{event_type,label,time_text,description,risk_relevance}], "
+                "dechallenge:{available,result,evidence_text}, rechallenge:{available,result,evidence_text}, "
+                "concomitant_drugs:[string], objective_evidence:[string], missing_information:[string], extraction_confidence:number}. "
+                "Use role primary_suspect/interacting/concomitant. "
+                "Use severity low/moderate/high/critical. "
+                "Use event_type drug_start/concomitant_drug_start/adr_onset/lab_abnormality/dechallenge/outcome. "
+                "Normalize drug and ADR names to English when possible, but keep original evidence_text."
+            )
+        ),
+        HumanMessage(content=case_text),
+    ]
+    response = llm.invoke(messages)
+    content = str(response.content).strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1]
+        if content.endswith("```"):
+            content = content[:-3]
+    data = json.loads(content)
+    return ADRExtractionResult.model_validate(data)
 
 
 def _concomitant_drugs(example_id: str) -> list[str]:

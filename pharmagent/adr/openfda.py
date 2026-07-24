@@ -5,7 +5,10 @@ from __future__ import annotations
 import httpx
 
 from pharmagent.adr.demo_data import get_local_signal
+from pharmagent.adr.faers_cache import query_faers_signal
 from pharmagent.adr.schemas import OpenFDASignal
+from pharmagent.config import settings
+from pharmagent.runtime_config import load_runtime_config
 
 OPENFDA_EVENT_URL = "https://api.fda.gov/drug/event.json"
 
@@ -13,7 +16,16 @@ OPENFDA_EVENT_URL = "https://api.fda.gov/drug/event.json"
 def detect_signal(drug: str, adr: str, realtime: bool = False) -> OpenFDASignal:
     """Return a FAERS-like signal; use local demo data unless realtime is requested."""
     local = get_local_signal(drug, adr)
-    if not realtime:
+    runtime = load_runtime_config()
+    try:
+        return query_faers_signal(drug, adr)
+    except FileNotFoundError:
+        pass
+    except Exception:
+        if runtime.openfda.strict_real_data:
+            raise
+
+    if not realtime and not runtime.openfda.strict_real_data:
         return local
 
     try:
@@ -25,6 +37,8 @@ def detect_signal(drug: str, adr: str, realtime: bool = False) -> OpenFDASignal:
         )
         return realtime_signal
     except Exception:
+        if runtime.openfda.strict_real_data:
+            raise
         local.source_mode = "fallback_demo"
         local.limitations = [
             "实时 openFDA 查询失败，当前回退到本地演示数据。",
@@ -48,10 +62,13 @@ def query_openfda_realtime(drug: str, adr: str) -> OpenFDASignal:
     drug_search = f'patient.drug.medicinalproduct:"{drug_query}"'
     adr_search = f'patient.reaction.reactionmeddrapt:"{adr_query}"'
 
+    runtime = load_runtime_config()
+    api_key = runtime.openfda.api_key or settings.openfda_api_key
+
     with httpx.Client(timeout=8.0) as client:
-        combined = _count(client, combined_search)
-        drug_total = _count(client, drug_search)
-        adr_total = _count(client, adr_search)
+        combined = _count(client, combined_search, api_key)
+        drug_total = _count(client, drug_search, api_key)
+        adr_total = _count(client, adr_search, api_key)
 
     a = max(combined, 0)
     b = max(drug_total - a, 1)
@@ -68,12 +85,17 @@ def query_openfda_realtime(drug: str, adr: str) -> OpenFDASignal:
         drug=drug,
         adr=adr,
         source_mode="realtime_openfda",
+        source="openFDA drug/event.json",
+        source_type="realtime_openfda_api",
+        deduplicated=False,
         report_count=a,
         serious_count=0,
         death_count=0,
         hospitalization_count=0,
         ror=ror,
         prr=prr,
+        contingency_table={"a": a, "b": b, "c": c, "d": d},
+        serious_ratio=0.0,
         signal_level=signal_level,
         yearly_trend=[],
         sex_distribution=[],
@@ -85,8 +107,11 @@ def query_openfda_realtime(drug: str, adr: str) -> OpenFDASignal:
     )
 
 
-def _count(client: httpx.Client, search: str) -> int:
-    res = client.get(OPENFDA_EVENT_URL, params={"search": search, "limit": 1})
+def _count(client: httpx.Client, search: str, api_key: str = "") -> int:
+    params: dict[str, str | int] = {"search": search, "limit": 1}
+    if api_key:
+        params["api_key"] = api_key
+    res = client.get(OPENFDA_EVENT_URL, params=params)
     if res.status_code == 404:
         return 0
     res.raise_for_status()

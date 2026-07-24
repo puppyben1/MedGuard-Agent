@@ -17,7 +17,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from pharmagent.api.routes import adr, examples, prescription, qa
+from pharmagent.api.routes import adr, config, examples, faers, graph, polypharmacy, prescription, qa, rag, research
 from pharmagent.logging_config import setup_logging
 
 setup_logging("INFO")
@@ -59,3 +59,9 @@ app.include_router(prescription.router, prefix="/api", tags=["prescription"])
 app.include_router(qa.router, prefix="/api", tags=["qa"])
 app.include_router(examples.router, prefix="/api", tags=["examples"])
 app.include_router(adr.router, prefix="/api", tags=["adr"])
+app.include_router(config.router, prefix="/api", tags=["config"])
+app.include_router(rag.router, prefix="/api", tags=["rag"])
+app.include_router(graph.router, prefix="/api", tags=["graph"])
+app.include_router(faers.router, prefix="/api", tags=["faers"])
+app.include_router(research.router, prefix="/api", tags=["research"])
+app.include_router(polypharmacy.router, prefix="/api", tags=["polypharmacy"])
